@@ -1,1 +1,8 @@
+Name: TubesPbb
+Package name: com.umran.TubesPbb
+Lokasi: c/androidstudio
+langage: kotlin
+minimum SDK: API 24 ("Naugat"; Android 7.0)
+Build configuration languange: Kotilin DSL (Build.gradle.kts) [RECOMENDED]
 
+Phone and Tablet: Empthy Views Activity
