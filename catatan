@@ -1,5 +1,5 @@
-Name: TubesPbb
-Package name: com.umran.TubesPbb
+Name: finsheet
+Package name: com.mobileprogramming.finsheet
 Lokasi: c/androidstudio
 langage: kotlin
 minimum SDK: API 24 ("Naugat"; Android 7.0)

@@ -22,6 +22,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "TubesPbb"
+rootProject.name = "finsheet"
 include(":app")
  
