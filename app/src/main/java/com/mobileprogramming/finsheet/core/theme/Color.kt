@@ -6,24 +6,30 @@ val primaryLight = Color(0xFF094CB2)
 val onPrimaryLight = Color(0xFFFFFFFF)
 val primaryContainerLight = Color(0xFF3366CC)
 val onPrimaryContainerLight = Color(0xFFE7EBFF)
+
 val secondaryLight = Color(0xFF0060AC)
 val onSecondaryLight = Color(0xFFFFFFFF)
 val secondaryContainerLight = Color(0xFF64A8FE)
 val onSecondaryContainerLight = Color(0xFF003C70)
+
 val tertiaryLight = Color(0xFF754900)
 val onTertiaryLight = Color(0xFFFFFFFF)
 val tertiaryContainerLight = Color(0xFF965E00)
 val onTertiaryContainerLight = Color(0xFFFFE8D1)
+
 val errorLight = Color(0xFFBA1A1A)
 val onErrorLight = Color(0xFFFFFFFF)
 val errorContainerLight = Color(0xFFFFDAD6)
 val onErrorContainerLight = Color(0xFF93000A)
+
 val backgroundLight = Color(0xFFF8F9FF)
 val onBackgroundLight = Color(0xFF0B1C30)
+
 val surfaceLight = Color(0xFFF8F9FF)
 val onSurfaceLight = Color(0xFF0B1C30)
 val surfaceVariantLight = Color(0xFFD3E4FE)
 val onSurfaceVariantLight = Color(0xFF434653)
+
 val outlineLight = Color(0xFF737784)
 val outlineVariantLight = Color(0xFFC3C6D5)
 val scrimLight = Color(0xFF000000)
