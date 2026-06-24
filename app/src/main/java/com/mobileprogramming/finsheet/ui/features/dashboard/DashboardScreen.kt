@@ -53,13 +53,19 @@ import com.mobileprogramming.finsheet.ui.components.FilterChipsRow
 fun DashboardScreen(
     viewModel: DashboardViewModel = viewModel(),
     onNavigateToAddTransaction: () -> Unit,
+    onNavigateToHistory: () -> Unit,
     onNavigateToReport: () -> Unit,
     onNavigateToSettings: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
     Scaffold(
-        bottomBar = { BottomNavigationBar(onFabClick = onNavigateToAddTransaction) },
+        bottomBar = {
+            BottomNavigationBar(
+                onFabClick = onNavigateToAddTransaction,
+                onTransaksiClick = onNavigateToHistory
+            )
+        },
         containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
         Column(

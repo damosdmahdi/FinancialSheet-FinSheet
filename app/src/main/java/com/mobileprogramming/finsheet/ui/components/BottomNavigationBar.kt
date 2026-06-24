@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.PieChart
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.automirrored.outlined.List
 import androidx.compose.material.icons.outlined.PieChart
 import androidx.compose.material.icons.outlined.Settings
@@ -30,45 +31,62 @@ import androidx.compose.ui.unit.dp
 
 @Composable
 fun BottomNavigationBar(
-    onFabClick: () -> Unit = {}
+    onFabClick: () -> Unit = {},
+    onTransaksiClick: () -> Unit = {},
+    selectedItem: String = "Beranda"     // kontrol tab aktif dari pemanggil
 ) {
     NavigationBar(
         containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
         tonalElevation = 0.dp
     ) {
-        val selectedColor = MaterialTheme.colorScheme.primary
+        val selectedColor   = MaterialTheme.colorScheme.primary
         val unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant
-        
+
+        // Beranda
         NavigationBarItem(
-            selected = true,
-            onClick = { /*TODO*/ },
-            icon = { Icon(Icons.Filled.Home, contentDescription = "Beranda") },
-            label = { Text("Beranda") },
+            selected = selectedItem == "Beranda",
+            onClick  = { /*TODO*/ },
+            icon     = {
+                Icon(
+                    if (selectedItem == "Beranda") Icons.Filled.Home
+                    else Icons.Outlined.Home,
+                    contentDescription = "Beranda"
+                )
+            },
+            label  = { Text("Beranda") },
             colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = selectedColor,
+                selectedIconColor   = selectedColor,
                 unselectedIconColor = unselectedColor,
-                indicatorColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
-            )
-        )
-        
-        NavigationBarItem(
-            selected = false,
-            onClick = { /*TODO*/ },
-            icon = { Icon(Icons.AutoMirrored.Outlined.List, contentDescription = "Transaksi") },
-            label = { Text("Transaksi") },
-            colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = selectedColor,
-                unselectedIconColor = unselectedColor
+                indicatorColor      = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
             )
         )
 
-        // Center FAB-like Add button inside the navigation bar
+        // Transaksi
+        NavigationBarItem(
+            selected = selectedItem == "Transaksi",
+            onClick  = onTransaksiClick,
+            icon     = {
+                Icon(
+                    if (selectedItem == "Transaksi") Icons.AutoMirrored.Filled.List
+                    else Icons.AutoMirrored.Outlined.List,
+                    contentDescription = "Transaksi"
+                )
+            },
+            label  = { Text("Transaksi") },
+            colors = NavigationBarItemDefaults.colors(
+                selectedIconColor   = selectedColor,
+                unselectedIconColor = unselectedColor,
+                indicatorColor      = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
+            )
+        )
+
+        // Tambah (FAB center)
         NavigationBarItem(
             selected = false,
-            onClick = onFabClick,
-            icon = { 
+            onClick  = onFabClick,
+            icon     = {
                 Box(
-                    modifier = Modifier
+                    modifier         = Modifier
                         .size(40.dp)
                         .clip(CircleShape)
                         .background(MaterialTheme.colorScheme.primary),
@@ -77,33 +95,49 @@ fun BottomNavigationBar(
                     Icon(Icons.Filled.Add, contentDescription = "Add", tint = Color.White)
                 }
             },
-            label = { },
+            label  = { },
             colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = selectedColor,
+                selectedIconColor   = selectedColor,
                 unselectedIconColor = unselectedColor,
-                indicatorColor = Color.Transparent
+                indicatorColor      = Color.Transparent
             )
         )
 
+        // Anggaran
         NavigationBarItem(
-            selected = false,
-            onClick = { /*TODO*/ },
-            icon = { Icon(Icons.Outlined.PieChart, contentDescription = "Anggaran") },
-            label = { Text("Anggaran") },
+            selected = selectedItem == "Anggaran",
+            onClick  = { /*TODO*/ },
+            icon     = {
+                Icon(
+                    if (selectedItem == "Anggaran") Icons.Filled.PieChart
+                    else Icons.Outlined.PieChart,
+                    contentDescription = "Anggaran"
+                )
+            },
+            label  = { Text("Anggaran") },
             colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = selectedColor,
-                unselectedIconColor = unselectedColor
+                selectedIconColor   = selectedColor,
+                unselectedIconColor = unselectedColor,
+                indicatorColor      = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
             )
         )
 
+        // Settings
         NavigationBarItem(
-            selected = false,
-            onClick = { /*TODO*/ },
-            icon = { Icon(Icons.Outlined.Settings, contentDescription = "Settings") },
-            label = { Text("Settings") },
+            selected = selectedItem == "Settings",
+            onClick  = { /*TODO*/ },
+            icon     = {
+                Icon(
+                    if (selectedItem == "Settings") Icons.Filled.Settings
+                    else Icons.Outlined.Settings,
+                    contentDescription = "Settings"
+                )
+            },
+            label  = { Text("Settings") },
             colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = selectedColor,
-                unselectedIconColor = unselectedColor
+                selectedIconColor   = selectedColor,
+                unselectedIconColor = unselectedColor,
+                indicatorColor      = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
             )
         )
     }
