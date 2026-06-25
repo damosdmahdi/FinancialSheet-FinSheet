@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun BottomNavigationBar(
     onFabClick: () -> Unit = {},
+    onBerandaClick: () -> Unit = {},
     onTransaksiClick: () -> Unit = {},
     selectedItem: String = "Beranda"     // kontrol tab aktif dari pemanggil
 ) {
@@ -45,7 +46,7 @@ fun BottomNavigationBar(
         // Beranda
         NavigationBarItem(
             selected = selectedItem == "Beranda",
-            onClick  = { /*TODO*/ },
+            onClick  = onBerandaClick,
             icon     = {
                 Icon(
                     if (selectedItem == "Beranda") Icons.Filled.Home

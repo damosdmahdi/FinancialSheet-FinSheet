@@ -114,6 +114,7 @@ fun SelectCategoryScreen(
                     enabled = selectedLabel != null,
                     modifier = Modifier
                         .fillMaxWidth()
+                        .navigationBarsPadding()
                         .padding(horizontal = 16.dp, vertical = 12.dp)
                         .height(52.dp),
                     shape = RoundedCornerShape(14.dp),

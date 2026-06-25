@@ -43,6 +43,15 @@ fun FinSheetNavGraph(
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToAddTransaction = {
                     navController.navigate(Screen.AddTransaction.route)
+                },
+                onNavigateToDashboard = {
+                    navController.navigate(Screen.Dashboard.route) {
+                        popUpTo(Screen.Dashboard.route) { inclusive = false }
+                        launchSingleTop = true
+                    }
+                },
+                onNavigateToTransaction = {
+                    navController.navigate(Screen.AddTransaction.route)
                 }
             )
         }

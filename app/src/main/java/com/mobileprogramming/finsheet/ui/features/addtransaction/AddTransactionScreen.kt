@@ -1,6 +1,14 @@
 package com.mobileprogramming.finsheet.ui.features.addtransaction
 
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
+import android.graphics.BitmapFactory
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -23,13 +31,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
+import java.io.File
 
 // ---------------------------------------------------------------------------
 // Data model (UI-only, to be replaced by domain model + ViewModel later)
@@ -52,6 +66,20 @@ private val defaultCategories = listOf(
 )
 
 // ---------------------------------------------------------------------------
+// Helper — buat URI sementara untuk foto kamera via FileProvider
+// ---------------------------------------------------------------------------
+
+private fun createCameraUri(context: Context): Uri {
+    val imageDir = File(context.cacheDir, "images").also { it.mkdirs() }
+    val imageFile = File.createTempFile("camera_", ".jpg", imageDir)
+    return FileProvider.getUriForFile(
+        context,
+        "${context.packageName}.provider",
+        imageFile
+    )
+}
+
+// ---------------------------------------------------------------------------
 // Screen
 // ---------------------------------------------------------------------------
 
@@ -67,13 +95,67 @@ fun AddTransactionScreen(
     var selectedCurrency by remember { mutableStateOf("USD") }
     var amountText by remember { mutableStateOf("15.50") }
     var selectedCategory by remember { mutableStateOf("Makanan") }
-    var dateText by remember { mutableStateOf("10/27/2023") }
     var noteText by remember { mutableStateOf("") }
     var currencyDropdownExpanded by remember { mutableStateOf(false) }
 
+    // DatePicker state
+    var showDatePicker by remember { mutableStateOf(false) }
+    val datePickerState = rememberDatePickerState(
+        initialSelectedDateMillis = System.currentTimeMillis()
+    )
+    val dateText = remember(datePickerState.selectedDateMillis) {
+        val millis = datePickerState.selectedDateMillis ?: System.currentTimeMillis()
+        val sdf = java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.forLanguageTag("id-ID"))
+        sdf.format(java.util.Date(millis))
+    }
+
     val primaryBlue = Color(0xFF1A5BEB)
-    val lightGrayBg = Color(0xFFF0F2F8)
-    val segmentedBg = Color(0xFFE8ECF5)
+
+    // Image state
+    val context = LocalContext.current
+    var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
+    var showImageSourceDialog by remember { mutableStateOf(false) }
+
+    // URI sementara untuk foto kamera
+    val cameraImageUri = remember {
+        createCameraUri(context)
+    }
+
+    // Launcher kamera — TakePicture mengembalikan Boolean (berhasil/tidak)
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success ->
+        if (success) selectedImageUri = cameraImageUri
+    }
+
+    // Launcher permintaan izin CAMERA (runtime permission)
+    // Dideklarasikan setelah cameraLauncher agar bisa direferensikan
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            cameraLauncher.launch(cameraImageUri)
+        }
+    }
+
+    // Launcher galeri — GetContent mengembalikan URI gambar
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri != null) selectedImageUri = uri
+    }
+
+    // Helper: buka kamera dengan cek permission terlebih dahulu
+    fun launchCamera() {
+        val hasPerm = ContextCompat.checkSelfPermission(
+            context, Manifest.permission.CAMERA
+        ) == PackageManager.PERMISSION_GRANTED
+        if (hasPerm) {
+            cameraLauncher.launch(cameraImageUri)
+        } else {
+            permissionLauncher.launch(Manifest.permission.CAMERA)
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -118,8 +200,7 @@ fun AddTransactionScreen(
             SegmentedTypeToggle(
                 selected = selectedType,
                 onSelect = { selectedType = it },
-                primaryBlue = primaryBlue,
-                segmentedBg = segmentedBg
+                primaryBlue = primaryBlue
             )
 
             // ----------------------------------------------------------------
@@ -136,7 +217,6 @@ fun AddTransactionScreen(
                     selectedCurrency = it
                     currencyDropdownExpanded = false
                 },
-                lightGrayBg = lightGrayBg,
                 primaryBlue = primaryBlue
             )
 
@@ -160,22 +240,48 @@ fun AddTransactionScreen(
             )
 
             // ----------------------------------------------------------------
-            // 4. Tanggal Field
+            // 4. Tanggal Field — klik membuka DatePickerDialog
             // ----------------------------------------------------------------
+            if (showDatePicker) {
+                DatePickerDialog(
+                    onDismissRequest = { showDatePicker = false },
+                    confirmButton = {
+                        TextButton(onClick = { showDatePicker = false }) {
+                            Text("Pilih")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showDatePicker = false }) {
+                            Text("Batal")
+                        }
+                    }
+                ) {
+                    DatePicker(
+                        state = datePickerState,
+                        showModeToggle = true
+                    )
+                }
+            }
+
             OutlinedTextField(
                 value = dateText,
-                onValueChange = { dateText = it },
+                onValueChange = {},                        // read-only
                 label = { Text("Tanggal") },
                 trailingIcon = {
-                    Icon(
-                        imageVector = Icons.Outlined.CalendarMonth,
-                        contentDescription = "Pilih Tanggal",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    IconButton(onClick = { showDatePicker = true }) {
+                        Icon(
+                            imageVector = Icons.Outlined.CalendarMonth,
+                            contentDescription = "Pilih Tanggal",
+                            tint = primaryBlue
+                        )
+                    }
                 },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showDatePicker = true },
                 shape = RoundedCornerShape(10.dp),
                 singleLine = true,
+                readOnly = true,
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = primaryBlue,
                     unfocusedBorderColor = MaterialTheme.colorScheme.outline
@@ -207,7 +313,7 @@ fun AddTransactionScreen(
             )
 
             // ----------------------------------------------------------------
-            // 6. Dokumentasi Gambar – Dashed Upload Box
+            // 6. Dokumentasi Gambar
             // ----------------------------------------------------------------
             Text(
                 text = "Dokumentasi Gambar",
@@ -216,10 +322,153 @@ fun AddTransactionScreen(
                 )
             )
 
-            DashedUploadBox(
-                onClick = { /* TODO: open camera/gallery */ },
-                primaryBlue = primaryBlue
-            )
+            // Dialog pilihan sumber gambar
+            if (showImageSourceDialog) {
+                AlertDialog(
+                    onDismissRequest = { showImageSourceDialog = false },
+                    title = {
+                        Text(
+                            text = "Pilih Sumber Gambar",
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.Bold
+                            )
+                        )
+                    },
+                    text = {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            // Kamera
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(primaryBlue.copy(alpha = 0.08f))
+                                    .clickable {
+                                        showImageSourceDialog = false
+                                        launchCamera()
+                                    }
+                                    .padding(14.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.CameraAlt,
+                                    contentDescription = "Kamera",
+                                    tint = primaryBlue,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Text(
+                                    text = "Ambil Foto (Kamera)",
+                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                        fontWeight = FontWeight.SemiBold
+                                    ),
+                                    color = primaryBlue
+                                )
+                            }
+                            // Galeri
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                                    .clickable {
+                                        showImageSourceDialog = false
+                                        galleryLauncher.launch("image/*")
+                                    }
+                                    .padding(14.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Photo,
+                                    contentDescription = "Galeri",
+                                    tint = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Text(
+                                    text = "Pilih dari Galeri",
+                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                        fontWeight = FontWeight.SemiBold
+                                    ),
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
+                    },
+                    confirmButton = {},
+                    dismissButton = {
+                        TextButton(onClick = { showImageSourceDialog = false }) {
+                            Text("Batal")
+                        }
+                    },
+                    shape = RoundedCornerShape(16.dp)
+                )
+            }
+
+            if (selectedImageUri != null) {
+                // Decode URI menjadi Bitmap secara native (tanpa Coil)
+                val imageBitmap = remember(selectedImageUri) {
+                    selectedImageUri?.let { uri ->
+                        context.contentResolver.openInputStream(uri)?.use { stream ->
+                            BitmapFactory.decodeStream(stream)?.asImageBitmap()
+                        }
+                    }
+                }
+                // Preview foto yang dipilih
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(160.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                ) {
+                    imageBitmap?.let {
+                        Image(
+                            bitmap = it,
+                            contentDescription = "Foto Transaksi",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                    // Tombol hapus foto
+                    IconButton(
+                        onClick = { selectedImageUri = null },
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(6.dp)
+                            .size(30.dp)
+                            .clip(CircleShape)
+                            .background(Color.Black.copy(alpha = 0.5f))
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Close,
+                            contentDescription = "Hapus Foto",
+                            tint = Color.White,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                    // Tombol ganti foto
+                    IconButton(
+                        onClick = { showImageSourceDialog = true },
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(6.dp)
+                            .size(30.dp)
+                            .clip(CircleShape)
+                            .background(primaryBlue.copy(alpha = 0.85f))
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Edit,
+                            contentDescription = "Ganti Foto",
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+            } else {
+                DashedUploadBox(
+                    onClick = { showImageSourceDialog = true },
+                    primaryBlue = primaryBlue
+                )
+            }
 
             Spacer(modifier = Modifier.height(4.dp))
 
@@ -245,9 +494,9 @@ fun AddTransactionScreen(
 private fun SegmentedTypeToggle(
     selected: TransactionType,
     onSelect: (TransactionType) -> Unit,
-    primaryBlue: Color,
-    segmentedBg: Color
+    primaryBlue: Color
 ) {
+    val segmentedBg = MaterialTheme.colorScheme.surfaceContainerHigh
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -306,7 +555,6 @@ private fun AmountInputCard(
     onDropdownToggle: () -> Unit,
     onDropdownDismiss: () -> Unit,
     onCurrencySelected: (String) -> Unit,
-    lightGrayBg: Color,
     primaryBlue: Color
 ) {
     val currencies = listOf("USD", "IDR", "EUR", "SGD", "JPY")
@@ -314,7 +562,7 @@ private fun AmountInputCard(
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(14.dp),
-        color = lightGrayBg,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
         tonalElevation = 0.dp
     ) {
         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
@@ -502,7 +750,7 @@ private fun DashedUploadBox(
             .fillMaxWidth()
             .height(110.dp)
             .clip(RoundedCornerShape(14.dp))
-            .background(Color(0xFFF0F4FF))
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
@@ -577,7 +825,7 @@ private fun ActionButtonsRow(
         Button(
             onClick = onSave,
             modifier = Modifier
-                .weight(2f)
+                .weight(1f)
                 .height(52.dp),
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.buttonColors(

@@ -24,6 +24,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mobileprogramming.finsheet.ui.components.BottomNavigationBar
+import java.text.SimpleDateFormat
+import java.util.*
 
 // ---------------------------------------------------------------------------
 // Data models (UI-only — lift to domain + ViewModel later)
@@ -105,6 +107,15 @@ private val mockTransactionGroups = listOf(
 )
 
 // ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+private fun formatDateMillis(millis: Long): String {
+    val sdf = SimpleDateFormat("d MMM yyyy", Locale.forLanguageTag("id-ID"))
+    return sdf.format(Date(millis))
+}
+
+// ---------------------------------------------------------------------------
 // Screen
 // ---------------------------------------------------------------------------
 
@@ -112,19 +123,37 @@ private val mockTransactionGroups = listOf(
 @Composable
 fun HistoryScreen(
     onNavigateBack: () -> Unit = {},
-    onNavigateToAddTransaction: () -> Unit = {}
+    onNavigateToAddTransaction: () -> Unit = {},
+    onNavigateToDashboard: () -> Unit = {},
+    onNavigateToTransaction: () -> Unit = {}   // [REVISI 3] navigasi ke halaman transaksi
 ) {
-    /* ---- Local UI state (lift to ViewModel later) ---- */
-    var selectedFilter       by remember { mutableStateOf(TransactionFilter.SEMUA) }
-    var dateRangeText        by remember { mutableStateOf("1 Okt - 10 Okt 2023") }
-    var dateDropdownExpanded by remember { mutableStateOf(false) }
+    /* ---- Local UI state ---- */
+    var selectedFilter          by remember { mutableStateOf(TransactionFilter.SEMUA) }
+    var showDatePicker          by remember { mutableStateOf(false) }          // [REVISI 1]
+    var isSyncing               by remember { mutableStateOf(false) }         // [REVISI 2]
+
+    // [REVISI 1] Rentang tanggal dari DateRangePicker
+    val dateRangePickerState = rememberDateRangePickerState()
+    val dateRangeText = remember(
+        dateRangePickerState.selectedStartDateMillis,
+        dateRangePickerState.selectedEndDateMillis
+    ) {
+        val start = dateRangePickerState.selectedStartDateMillis
+        val end   = dateRangePickerState.selectedEndDateMillis
+        when {
+            start != null && end != null ->
+                "${formatDateMillis(start)} - ${formatDateMillis(end)}"
+            start != null ->
+                "${formatDateMillis(start)} - ..."
+            else ->
+                "1 Okt - 10 Okt 2023"
+        }
+    }
 
     val primaryBlue   = Color(0xFF1A5BEB)
     val incomeGreen   = Color(0xFF2DC653)
     val expenseRed    = Color(0xFFE53935)
-    val segmentedBg   = Color(0xFFE8ECF5)
-    val syncGreenBg   = Color(0xFFE8F5E9)
-    val syncGreenText = Color(0xFF2E7D32)
+    val segmentedBg   = MaterialTheme.colorScheme.surfaceContainerHigh
 
     // Filter the groups based on selected tab
     val filteredGroups = remember(selectedFilter) {
@@ -138,6 +167,66 @@ fun HistoryScreen(
                 val filtered = group.items.filter { !it.isExpense }
                 if (filtered.isEmpty()) null else group.copy(items = filtered)
             }
+        }
+    }
+
+    // [REVISI 1] Modal DateRangePicker
+    if (showDatePicker) {
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text("Pilih")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text("Batal")
+                }
+            }
+        ) {
+            DateRangePicker(
+                state = dateRangePickerState,
+                title = {
+                    Text(
+                        text     = "Pilih Rentang Waktu",
+                        modifier = Modifier.padding(start = 24.dp, end = 12.dp, top = 16.dp),
+                        style    = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    )
+                },
+                headline = {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp, vertical = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        val start = dateRangePickerState.selectedStartDateMillis
+                        val end   = dateRangePickerState.selectedEndDateMillis
+                        Text(
+                            text  = if (start != null) formatDateMillis(start) else "Tanggal mulai",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = if (start != null)
+                                        MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text("—", style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            text  = if (end != null) formatDateMillis(end) else "Tanggal selesai",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = if (end != null)
+                                        MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                },
+                showModeToggle = false,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(500.dp)
+            )
         }
     }
 
@@ -162,18 +251,18 @@ fun HistoryScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor          = MaterialTheme.colorScheme.surface,
-                    titleContentColor       = MaterialTheme.colorScheme.onSurface,
+                    containerColor             = MaterialTheme.colorScheme.surface,
+                    titleContentColor          = MaterialTheme.colorScheme.onSurface,
                     navigationIconContentColor = MaterialTheme.colorScheme.onSurface
                 )
             )
         },
-        // BottomNavigationBar di-pin di sini sehingga LazyColumn tidak mendorongnya
         bottomBar = {
             BottomNavigationBar(
                 onFabClick       = onNavigateToAddTransaction,
+                onBerandaClick   = onNavigateToDashboard,
                 onTransaksiClick = { /* sudah berada di layar ini */ },
-                selectedItem     = "Transaksi"   // tab aktif
+                selectedItem     = "Transaksi"
             )
         }
     ) { paddingValues ->
@@ -184,7 +273,7 @@ fun HistoryScreen(
             contentPadding = PaddingValues(bottom = 8.dp)
         ) {
             // ----------------------------------------------------------------
-            // Header row: "Riwayat" title + "Sudah Sinkron" chip
+            // Header row: "Riwayat" title + Sync chip
             // ----------------------------------------------------------------
             item {
                 Row(
@@ -201,22 +290,28 @@ fun HistoryScreen(
                         ),
                         color = MaterialTheme.colorScheme.onSurface
                     )
+                    // [REVISI 2] Chip yang bisa diklik untuk sinkron manual
                     SyncStatusChip(
-                        bgColor   = syncGreenBg,
-                        textColor = syncGreenText
+                        isSyncing = isSyncing,
+                        primaryBlue = primaryBlue,
+                        onClick   = {
+                            if (!isSyncing) {
+                                isSyncing = true
+                                // TODO: panggil ViewModel.sync() di sini
+                                // Simulasi selesai sinkron setelah 2 detik
+                            }
+                        }
                     )
                 }
             }
 
             // ----------------------------------------------------------------
-            // Date range selector
+            // [REVISI 1] Date range selector — membuka modal DateRangePicker
             // ----------------------------------------------------------------
             item {
                 DateRangeRow(
                     label       = dateRangeText,
-                    expanded    = dateDropdownExpanded,
-                    onToggle    = { dateDropdownExpanded = !dateDropdownExpanded },
-                    onDismiss   = { dateDropdownExpanded = false },
+                    onToggle    = { showDatePicker = true },
                     primaryBlue = primaryBlue,
                     modifier    = Modifier.padding(horizontal = 16.dp)
                 )
@@ -224,7 +319,7 @@ fun HistoryScreen(
             }
 
             // ----------------------------------------------------------------
-            // Filter tabs: Semua / Pengeluaran / Pemasukan
+            // [REVISI 4] Filter tabs: Semua / Pengeluaran / Pemasukan — ukuran sama
             // ----------------------------------------------------------------
             item {
                 FilterTabRow(
@@ -261,11 +356,13 @@ fun HistoryScreen(
                     items = group.items,
                     key   = { "${group.dateLabel}_${it.title}_${it.time}" }
                 ) { tx ->
+                    // [REVISI 3] Klik item → navigasi ke halaman transaksi
                     TransactionRow(
                         item        = tx,
                         primaryBlue = primaryBlue,
                         incomeGreen = incomeGreen,
                         expenseRed  = expenseRed,
+                        onClick     = onNavigateToTransaction,
                         modifier    = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
                     )
                 }
@@ -283,25 +380,48 @@ fun HistoryScreen(
 // Sub-composables
 // ---------------------------------------------------------------------------
 
-/** Chip "Sudah Sinkron" dengan ikon centang hijau */
+/**
+ * [REVISI 2] Chip "Sudah Sinkron" / "Sinkronkan" yang bisa diklik untuk sinkron manual.
+ */
 @Composable
-private fun SyncStatusChip(bgColor: Color, textColor: Color) {
+private fun SyncStatusChip(
+    isSyncing: Boolean,
+    primaryBlue: Color,
+    onClick: () -> Unit
+) {
+    val bgColor   = if (isSyncing)
+        MaterialTheme.colorScheme.primaryContainer
+    else
+        MaterialTheme.colorScheme.secondaryContainer
+    val textColor = if (isSyncing)
+        MaterialTheme.colorScheme.onPrimaryContainer
+    else
+        MaterialTheme.colorScheme.onSecondaryContainer
     Row(
         modifier = Modifier
             .clip(RoundedCornerShape(50.dp))
             .background(bgColor)
+            .clickable(onClick = onClick)
             .padding(horizontal = 10.dp, vertical = 5.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        Icon(
-            imageVector        = Icons.Outlined.CheckCircle,
-            contentDescription = "Sinkron",
-            tint               = textColor,
-            modifier           = Modifier.size(14.dp)
-        )
+        if (isSyncing) {
+            CircularProgressIndicator(
+                modifier  = Modifier.size(14.dp),
+                color     = textColor,
+                strokeWidth = 1.5.dp
+            )
+        } else {
+            Icon(
+                imageVector        = Icons.Outlined.CheckCircle,
+                contentDescription = "Sinkron",
+                tint               = textColor,
+                modifier           = Modifier.size(14.dp)
+            )
+        }
         Text(
-            text  = "Sudah Sinkron",
+            text  = if (isSyncing) "Sinkronisasi..." else "Sudah Sinkron",
             style = MaterialTheme.typography.labelSmall.copy(
                 fontWeight = FontWeight.SemiBold,
                 color      = textColor,
@@ -311,79 +431,63 @@ private fun SyncStatusChip(bgColor: Color, textColor: Color) {
     }
 }
 
-/** Baris pemilih rentang tanggal */
+/**
+ * [REVISI 1] Baris pemilih rentang tanggal — onToggle membuka DateRangePicker modal.
+ */
 @Composable
 private fun DateRangeRow(
     label: String,
-    expanded: Boolean,
     onToggle: () -> Unit,
-    onDismiss: () -> Unit,
     primaryBlue: Color,
     modifier: Modifier = Modifier
 ) {
-    Box(modifier = modifier) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(10.dp))
-                .border(
-                    width  = 1.dp,
-                    color  = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),
-                    shape  = RoundedCornerShape(10.dp)
-                )
-                .background(MaterialTheme.colorScheme.surface)
-                .clickable { onToggle() }
-                .padding(horizontal = 14.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Icon(
-                imageVector        = Icons.Outlined.CalendarMonth,
-                contentDescription = "Rentang Tanggal",
-                tint               = primaryBlue,
-                modifier           = Modifier.size(18.dp)
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .border(
+                width  = 1.dp,
+                color  = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),
+                shape  = RoundedCornerShape(10.dp)
             )
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text  = "Rentang Waktu",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text  = label,
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontWeight = FontWeight.SemiBold
-                    ),
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-            }
-            Icon(
-                imageVector        = Icons.Outlined.KeyboardArrowDown,
-                contentDescription = "Buka Pilihan",
-                tint               = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier           = Modifier.size(20.dp)
+            .background(MaterialTheme.colorScheme.surface)
+            .clickable { onToggle() }
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Icon(
+            imageVector        = Icons.Outlined.CalendarMonth,
+            contentDescription = "Rentang Tanggal",
+            tint               = primaryBlue,
+            modifier           = Modifier.size(18.dp)
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text  = "Rentang Waktu",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text  = label,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontWeight = FontWeight.SemiBold
+                ),
+                color = MaterialTheme.colorScheme.onSurface
             )
         }
-
-        DropdownMenu(
-            expanded          = expanded,
-            onDismissRequest  = onDismiss
-        ) {
-            listOf(
-                "1 Okt - 10 Okt 2023",
-                "11 Okt - 20 Okt 2023",
-                "21 Okt - 31 Okt 2023"
-            ).forEach { range ->
-                DropdownMenuItem(
-                    text    = { Text(range) },
-                    onClick = { onDismiss() }
-                )
-            }
-        }
+        Icon(
+            imageVector        = Icons.Outlined.KeyboardArrowDown,
+            contentDescription = "Buka Pilihan",
+            tint               = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier           = Modifier.size(20.dp)
+        )
     }
 }
 
-/** Tab filter Semua / Pengeluaran / Pemasukan */
+/**
+ * [REVISI 4] Tab filter Semua / Pengeluaran / Pemasukan dengan ukuran yang sama rata.
+ */
 @Composable
 private fun FilterTabRow(
     selected: TransactionFilter,
@@ -400,6 +504,7 @@ private fun FilterTabRow(
             .padding(4.dp)
     ) {
         Row(modifier = Modifier.fillMaxWidth()) {
+            // weight(1f) yang sama untuk ketiga tombol
             FilterTab(
                 label       = "Semua",
                 isSelected  = selected == TransactionFilter.SEMUA,
@@ -412,14 +517,14 @@ private fun FilterTabRow(
                 isSelected  = selected == TransactionFilter.PENGELUARAN,
                 onClick     = { onSelect(TransactionFilter.PENGELUARAN) },
                 primaryBlue = primaryBlue,
-                modifier    = Modifier.weight(1.4f)
+                modifier    = Modifier.weight(1f)
             )
             FilterTab(
                 label       = "Pemasukan",
                 isSelected  = selected == TransactionFilter.PEMASUKAN,
                 onClick     = { onSelect(TransactionFilter.PEMASUKAN) },
                 primaryBlue = primaryBlue,
-                modifier    = Modifier.weight(1.2f)
+                modifier    = Modifier.weight(1f)
             )
         }
     }
@@ -452,19 +557,26 @@ private fun FilterTab(
     }
 }
 
-/** Baris satu transaksi */
+/**
+ * [REVISI 3] Baris satu transaksi — klik membuka halaman edit transaksi.
+ */
 @Composable
 private fun TransactionRow(
     item: TransactionItem,
     primaryBlue: Color,
     incomeGreen: Color,
     expenseRed: Color,
+    onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val amountColor = if (item.isExpense) expenseRed else incomeGreen
 
     Row(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .clickable(onClick = onClick)         // [REVISI 3] navigasi ke transaksi
+            .padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
