@@ -127,16 +127,16 @@ fun BottomNavigationBar(
 
         // Settings
         NavigationBarItem(
-            selected = selectedItem == "Settings",
+            selected = selectedItem == "Setelan",
             onClick  = onSettingsClick,
             icon     = {
                 Icon(
-                    if (selectedItem == "Settings") Icons.Filled.Settings
+                    if (selectedItem == "Setelan") Icons.Filled.Settings
                     else Icons.Outlined.Settings,
-                    contentDescription = "Settings"
+                    contentDescription = "Setelan"
                 )
             },
-            label  = { Text("Settings") },
+            label  = { Text("Setelan") },
             colors = NavigationBarItemDefaults.colors(
                 selectedIconColor   = selectedColor,
                 unselectedIconColor = unselectedColor,

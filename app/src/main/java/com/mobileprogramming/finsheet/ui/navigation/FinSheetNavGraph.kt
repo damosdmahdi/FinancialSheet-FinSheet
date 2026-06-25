@@ -85,7 +85,21 @@ fun FinSheetNavGraph(
         
         composable(Screen.Settings.route) {
             SettingsScreen(
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToBeranda = {
+                    navController.navigate(Screen.Dashboard.route) {
+                        popUpTo(Screen.Dashboard.route) { inclusive = true }
+                    }
+                },
+                onNavigateToTransaksi = {
+                    navController.navigate(Screen.History.route)
+                },
+                onNavigateToAddTransaction = {
+                    navController.navigate(Screen.AddTransaction.route)
+                },
+                onNavigateToAnggaran = {
+                    navController.navigate(Screen.Budget.route)
+                }
             )
         }
         
