@@ -55,19 +55,15 @@ fun DashboardScreen(
     onNavigateToAddTransaction: () -> Unit,
     onNavigateToHistory: () -> Unit,
     onNavigateToReport: () -> Unit,
-    onNavigateToSettings: () -> Unit,
-    onNavigateToAnggaran: () -> Unit
+    onNavigateToSettings: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
     Scaffold(
         bottomBar = {
             BottomNavigationBar(
-                selectedItem = "Beranda",
                 onFabClick = onNavigateToAddTransaction,
-                onTransaksiClick = onNavigateToHistory,
-                onAnggaranClick = onNavigateToAnggaran,
-                onSettingsClick = onNavigateToSettings
+                onTransaksiClick = onNavigateToHistory
             )
         },
         containerColor = MaterialTheme.colorScheme.background
