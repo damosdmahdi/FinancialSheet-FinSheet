@@ -32,7 +32,10 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun BottomNavigationBar(
     onFabClick: () -> Unit = {},
+    onBerandaClick: () -> Unit = {},
     onTransaksiClick: () -> Unit = {},
+    onAnggaranClick: () -> Unit = {},
+    onSettingsClick: () -> Unit = {},
     selectedItem: String = "Beranda"     // kontrol tab aktif dari pemanggil
 ) {
     NavigationBar(
@@ -45,7 +48,7 @@ fun BottomNavigationBar(
         // Beranda
         NavigationBarItem(
             selected = selectedItem == "Beranda",
-            onClick  = { /*TODO*/ },
+            onClick  = onBerandaClick,
             icon     = {
                 Icon(
                     if (selectedItem == "Beranda") Icons.Filled.Home
@@ -106,7 +109,7 @@ fun BottomNavigationBar(
         // Anggaran
         NavigationBarItem(
             selected = selectedItem == "Anggaran",
-            onClick  = { /*TODO*/ },
+            onClick  = onAnggaranClick,
             icon     = {
                 Icon(
                     if (selectedItem == "Anggaran") Icons.Filled.PieChart
@@ -125,7 +128,7 @@ fun BottomNavigationBar(
         // Settings
         NavigationBarItem(
             selected = selectedItem == "Settings",
-            onClick  = { /*TODO*/ },
+            onClick  = onSettingsClick,
             icon     = {
                 Icon(
                     if (selectedItem == "Settings") Icons.Filled.Settings
