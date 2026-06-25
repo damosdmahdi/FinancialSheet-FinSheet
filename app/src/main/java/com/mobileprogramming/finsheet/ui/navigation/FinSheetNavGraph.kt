@@ -4,8 +4,11 @@ import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import com.mobileprogramming.finsheet.ui.features.addtransaction.AddCategoryScreen
 import com.mobileprogramming.finsheet.ui.features.addtransaction.AddTransactionScreen
+import com.mobileprogramming.finsheet.ui.features.addtransaction.SelectCategoryScreen
 import com.mobileprogramming.finsheet.ui.features.dashboard.DashboardScreen
+import com.mobileprogramming.finsheet.ui.features.history.HistoryScreen
 import com.mobileprogramming.finsheet.ui.features.report.ReportScreen
 import com.mobileprogramming.finsheet.ui.features.settings.SettingsScreen
 import com.mobileprogramming.finsheet.ui.features.budget.AddBudgetScreen
@@ -23,6 +26,9 @@ fun FinSheetNavGraph(
                 onNavigateToAddTransaction = {
                     navController.navigate(Screen.AddTransaction.route)
                 },
+                onNavigateToHistory = {
+                    navController.navigate(Screen.History.route)
+                },
                 onNavigateToReport = {
                     navController.navigate(Screen.Report.route)
                 },
@@ -35,8 +41,38 @@ fun FinSheetNavGraph(
             )
         }
         
+        composable(Screen.History.route) {
+            HistoryScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToAddTransaction = {
+                    navController.navigate(Screen.AddTransaction.route)
+                }
+            )
+        }
+
         composable(Screen.AddTransaction.route) {
             AddTransactionScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToSelectCategory = {
+                    navController.navigate(Screen.SelectCategory.route)
+                },
+                onNavigateToAddCategory = {
+                    navController.navigate(Screen.AddCategory.route)
+                }
+            )
+        }
+
+        composable(Screen.SelectCategory.route) {
+            SelectCategoryScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToAddCategory = {
+                    navController.navigate(Screen.AddCategory.route)
+                }
+            )
+        }
+
+        composable(Screen.AddCategory.route) {
+            AddCategoryScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
         }
