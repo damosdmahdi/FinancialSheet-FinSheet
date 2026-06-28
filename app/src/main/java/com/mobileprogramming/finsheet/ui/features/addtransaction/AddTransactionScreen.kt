@@ -916,7 +916,7 @@ private fun ActionButtonsRow(
             )
         ) {
             Text(
-                text = "Simpan Transaksi",
+                text = "Simpan",
                 style = MaterialTheme.typography.labelLarge
             )
         }
