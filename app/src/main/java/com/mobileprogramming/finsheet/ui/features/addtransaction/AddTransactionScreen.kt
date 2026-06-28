@@ -3,11 +3,14 @@ package com.mobileprogramming.finsheet.ui.features.addtransaction
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Matrix
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.exifinterface.media.ExifInterface
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -53,16 +56,31 @@ private enum class TransactionType { PENGELUARAN, PEMASUKAN }
 
 private data class CategoryItem(
     val label: String,
-    val icon: ImageVector
+    val icon: ImageVector,
+    val bgColor: Color = Color.Transparent,
+    val iconColor: Color = Color.Unspecified
 )
 
-private val defaultCategories = listOf(
-    CategoryItem("Makanan", Icons.Outlined.Restaurant),
-    CategoryItem("Transport", Icons.Outlined.DirectionsCar),
-    CategoryItem("Belanja", Icons.Outlined.ShoppingCart),
-    CategoryItem("Edukasi", Icons.Outlined.School),
-    CategoryItem("Lainnya", Icons.Outlined.MoreHoriz),
-    CategoryItem("Tambah", Icons.Filled.Add)
+// Kategori Pengeluaran
+private val expenseCategories = listOf(
+    CategoryItem("Makanan",   Icons.Outlined.Restaurant,    Color(0xFFFFF0E0), Color(0xFFFF8C00)),
+    CategoryItem("Transport", Icons.Outlined.DirectionsCar, Color(0xFFFFF0E0), Color(0xFFFF8C00)),
+    CategoryItem("Belanja",   Icons.Outlined.ShoppingCart,  Color(0xFFFFEBEB), Color(0xFFE53935)),
+    CategoryItem("Edukasi",   Icons.Outlined.School,        Color(0xFFE8EEFF), Color(0xFF1A5BEB)),
+    CategoryItem("Lainnya",   Icons.Outlined.MoreHoriz,     Color(0xFFF0F0F8), Color(0xFF7B7FA6)),
+    CategoryItem("Tambah",    Icons.Filled.Add,             Color(0xFFF0F0F8), Color(0xFF7B7FA6))
+)
+
+// Kategori Pemasukan
+private val incomeCategories = listOf(
+    CategoryItem("Uang Saku",  Icons.Outlined.Savings,           Color(0xFFE8EEFF), Color(0xFF1A5BEB)),
+    CategoryItem("Gaji",       Icons.Outlined.AccountBalanceWallet, Color(0xFFE8FFE8), Color(0xFF2E7D32)),
+    CategoryItem("Freelance",  Icons.Outlined.Laptop,            Color(0xFFFFF0E0), Color(0xFFFF8C00)),
+    CategoryItem("Beasiswa",   Icons.Outlined.School,            Color(0xFFF3E5FF), Color(0xFF7B1FA2)),
+    CategoryItem("Hadiah",     Icons.Outlined.CardGiftcard,      Color(0xFFFFEBEB), Color(0xFFE53935)),
+    CategoryItem("Penjualan",  Icons.Outlined.Storefront,        Color(0xFFE0FFF4), Color(0xFF00897B)),
+    CategoryItem("Lainnya",    Icons.Outlined.MoreHoriz,         Color(0xFFF0F0F8), Color(0xFF7B7FA6)),
+    CategoryItem("Tambah",     Icons.Filled.Add,                 Color(0xFFF0F0F8), Color(0xFF7B7FA6))
 )
 
 // ---------------------------------------------------------------------------
@@ -77,6 +95,38 @@ private fun createCameraUri(context: Context): Uri {
         "${context.packageName}.provider",
         imageFile
     )
+}
+
+/**
+ * Membaca EXIF orientation dari URI dan memutar Bitmap agar foto tampil tegak (portrait).
+ * Tanpa ini, foto kamera yang diambil portrait bisa tampil landscape karena
+ * EXIF orientation diabaikan oleh BitmapFactory.
+ */
+private fun decodeBitmapWithCorrectOrientation(context: Context, uri: Uri): Bitmap? {
+    val originalBitmap = context.contentResolver.openInputStream(uri)?.use { stream ->
+        BitmapFactory.decodeStream(stream)
+    } ?: return null
+
+    val exifOrientation = context.contentResolver.openInputStream(uri)?.use { stream ->
+        ExifInterface(stream).getAttributeInt(
+            ExifInterface.TAG_ORIENTATION,
+            ExifInterface.ORIENTATION_NORMAL
+        )
+    } ?: ExifInterface.ORIENTATION_NORMAL
+
+    val degrees = when (exifOrientation) {
+        ExifInterface.ORIENTATION_ROTATE_90  -> 90f
+        ExifInterface.ORIENTATION_ROTATE_180 -> 180f
+        ExifInterface.ORIENTATION_ROTATE_270 -> 270f
+        else                                  -> 0f
+    }
+
+    return if (degrees != 0f) {
+        val matrix = Matrix().apply { postRotate(degrees) }
+        Bitmap.createBitmap(originalBitmap, 0, 0, originalBitmap.width, originalBitmap.height, matrix, true)
+    } else {
+        originalBitmap
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -199,7 +249,14 @@ fun AddTransactionScreen(
             // ----------------------------------------------------------------
             SegmentedTypeToggle(
                 selected = selectedType,
-                onSelect = { selectedType = it },
+                onSelect = {
+                    selectedType = it
+                    // Reset pilihan kategori saat ganti tab agar tidak mismatch
+                    selectedCategory = if (it == TransactionType.PENGELUARAN)
+                        expenseCategories.first().label
+                    else
+                        incomeCategories.first().label
+                },
                 primaryBlue = primaryBlue
             )
 
@@ -223,15 +280,20 @@ fun AddTransactionScreen(
             // ----------------------------------------------------------------
             // 3. Kategori Label + Grid
             // ----------------------------------------------------------------
+            val currentCategories = if (selectedType == TransactionType.PENGELUARAN)
+                expenseCategories else incomeCategories
+            val categoryLabel = if (selectedType == TransactionType.PENGELUARAN)
+                "Kategori Pengeluaran" else "Kategori Pemasukan"
+
             Text(
-                text = "Kategori",
+                text = categoryLabel,
                 style = MaterialTheme.typography.labelLarge.copy(
                     color = MaterialTheme.colorScheme.onSurface
                 )
             )
 
             CategoryGrid(
-                categories = defaultCategories,
+                categories = currentCategories,
                 selectedLabel = selectedCategory,
                 onCategorySelected = { selectedCategory = it },
                 onNavigateToSelectCategory = onNavigateToSelectCategory,
@@ -405,12 +467,11 @@ fun AddTransactionScreen(
             }
 
             if (selectedImageUri != null) {
-                // Decode URI menjadi Bitmap secara native (tanpa Coil)
+                // Decode URI menjadi Bitmap dengan koreksi EXIF orientation
+                // agar foto portrait dari kamera tidak tampil landscape.
                 val imageBitmap = remember(selectedImageUri) {
                     selectedImageUri?.let { uri ->
-                        context.contentResolver.openInputStream(uri)?.use { stream ->
-                            BitmapFactory.decodeStream(stream)?.asImageBitmap()
-                        }
+                        decodeBitmapWithCorrectOrientation(context, uri)?.asImageBitmap()
                     }
                 }
                 // Preview foto yang dipilih
@@ -701,18 +762,20 @@ private fun CategoryGridItem(
     onClick: () -> Unit,
     primaryBlue: Color
 ) {
-    val containerColor = if (isSelected) primaryBlue else Color.Transparent
-    val borderColor = if (isSelected) primaryBlue else MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
-    val contentColor = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface
+    // Saat dipilih: seluruh card biru, icon & teks putih
+    // Saat tidak dipilih: card putih/surface, icon punya background circle berwarna sesuai Figma
+    val cardBg    = if (isSelected) primaryBlue else MaterialTheme.colorScheme.surface
+    val cardBorder = if (isSelected) primaryBlue else MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)
+    val labelColor = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface
 
     Column(
         modifier = Modifier
             .aspectRatio(1f)
             .clip(RoundedCornerShape(12.dp))
-            .background(containerColor)
+            .background(cardBg)
             .border(
                 width = 1.dp,
-                color = borderColor,
+                color = cardBorder,
                 shape = RoundedCornerShape(12.dp)
             )
             .clickable(onClick = onClick)
@@ -720,17 +783,36 @@ private fun CategoryGridItem(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Icon(
-            imageVector = item.icon,
-            contentDescription = item.label,
-            modifier = Modifier.size(26.dp),
-            tint = contentColor
-        )
+        if (isSelected) {
+            // State selected: icon langsung, warna putih
+            Icon(
+                imageVector = item.icon,
+                contentDescription = item.label,
+                modifier = Modifier.size(26.dp),
+                tint = Color.White
+            )
+        } else {
+            // State normal: icon dibungkus circle berwarna khas per-kategori
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(item.bgColor),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = item.icon,
+                    contentDescription = item.label,
+                    modifier = Modifier.size(20.dp),
+                    tint = item.iconColor
+                )
+            }
+        }
         Spacer(modifier = Modifier.height(6.dp))
         Text(
             text = item.label,
             style = MaterialTheme.typography.labelSmall,
-            color = contentColor,
+            color = labelColor,
             textAlign = TextAlign.Center,
             maxLines = 1
         )
