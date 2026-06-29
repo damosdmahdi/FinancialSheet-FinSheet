@@ -15,126 +15,126 @@ import com.mobileprogramming.finsheet.ui.features.budget.AddBudgetScreen
 @Composable
 fun FinSheetNavGraph(
     navController: NavHostController,
-    startDestination: String = Screen.Dashboard.route
+    startDestination: Any = Screen.Dashboard
 ) {
     NavHost(
         navController = navController,
         startDestination = startDestination
     ) {
-        composable(Screen.Dashboard.route) {
+        composable<Screen.Dashboard> {
             DashboardScreen(
                 onNavigateToAddTransaction = {
-                    navController.navigate(Screen.AddTransaction.route)
+                    navController.navigate(Screen.AddTransaction)
                 },
                 onNavigateToHistory = {
-                    navController.navigate(Screen.History.route)
+                    navController.navigate(Screen.History)
                 },
                 onNavigateToReport = {
-                    navController.navigate(Screen.Report.route)
+                    navController.navigate(Screen.Report)
                 },
                 onNavigateToSettings = {
-                    navController.navigate(Screen.Settings.route)
+                    navController.navigate(Screen.Settings)
                 },
                 onNavigateToAnggaran = {
-                    navController.navigate(Screen.Budget.route)
+                    navController.navigate(Screen.Budget)
                 }
             )
         }
         
-        composable(Screen.History.route) {
+        composable<Screen.History> {
             HistoryScreen(
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToAddTransaction = {
-                    navController.navigate(Screen.AddTransaction.route)
+                    navController.navigate(Screen.AddTransaction)
                 },
                 onNavigateToDashboard = {
-                    navController.navigate(Screen.Dashboard.route) {
-                        popUpTo(Screen.Dashboard.route) { inclusive = false }
+                    navController.navigate(Screen.Dashboard) {
+                        popUpTo<Screen.Dashboard> { inclusive = false }
                         launchSingleTop = true
                     }
                 },
                 onNavigateToTransaction = {
-                    navController.navigate(Screen.AddTransaction.route)
+                    navController.navigate(Screen.AddTransaction)
                 }
             )
         }
 
-        composable(Screen.AddTransaction.route) {
+        composable<Screen.AddTransaction> {
             AddTransactionScreen(
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToSelectCategory = {
-                    navController.navigate(Screen.SelectCategory.route)
+                    navController.navigate(Screen.SelectCategory)
                 },
                 onNavigateToAddCategory = {
-                    navController.navigate(Screen.AddCategory.route)
+                    navController.navigate(Screen.AddCategory)
                 }
             )
         }
 
-        composable(Screen.SelectCategory.route) {
+        composable<Screen.SelectCategory> {
             SelectCategoryScreen(
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToAddCategory = {
-                    navController.navigate(Screen.AddCategory.route)
+                    navController.navigate(Screen.AddCategory)
                 }
             )
         }
 
-        composable(Screen.AddCategory.route) {
+        composable<Screen.AddCategory> {
             AddCategoryScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
         }
         
-        composable(Screen.Report.route) {
+        composable<Screen.Report> {
             ReportScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
         }
         
-        composable(Screen.Settings.route) {
+        composable<Screen.Settings> {
             SettingsScreen(
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToBeranda = {
-                    navController.navigate(Screen.Dashboard.route) {
-                        popUpTo(Screen.Dashboard.route) { inclusive = true }
+                    navController.navigate(Screen.Dashboard) {
+                        popUpTo<Screen.Dashboard> { inclusive = true }
                     }
                 },
                 onNavigateToTransaksi = {
-                    navController.navigate(Screen.History.route)
+                    navController.navigate(Screen.History)
                 },
                 onNavigateToAddTransaction = {
-                    navController.navigate(Screen.AddTransaction.route)
+                    navController.navigate(Screen.AddTransaction)
                 },
                 onNavigateToAnggaran = {
-                    navController.navigate(Screen.Budget.route)
+                    navController.navigate(Screen.Budget)
                 }
             )
         }
         
-        composable(Screen.Budget.route) {
+        composable<Screen.Budget> {
             com.mobileprogramming.finsheet.ui.features.budget.BudgetScreen(
                 onNavigateToBeranda = {
-                    navController.navigate(Screen.Dashboard.route) {
-                        popUpTo(Screen.Dashboard.route) { inclusive = true }
+                    navController.navigate(Screen.Dashboard) {
+                        popUpTo<Screen.Dashboard> { inclusive = true }
                     }
                 },
                 onNavigateToTransaksi = {
-                    navController.navigate(Screen.History.route)
+                    navController.navigate(Screen.History)
                 },
                 onNavigateToAddTransaction = {
-                    navController.navigate(Screen.AddTransaction.route)
+                    navController.navigate(Screen.AddTransaction)
                 },
                 onNavigateToSettings = {
-                    navController.navigate(Screen.Settings.route)
+                    navController.navigate(Screen.Settings)
                 },
                 onNavigateToAddBudget = {
-                    navController.navigate(Screen.AddBudget.route)
+                    navController.navigate(Screen.AddBudget)
                 }
             )
         }
 
-        composable(Screen.AddBudget.route) {
+        composable<Screen.AddBudget> {
             AddBudgetScreen(
                 onNavigateBack = { navController.popBackStack() }
             )

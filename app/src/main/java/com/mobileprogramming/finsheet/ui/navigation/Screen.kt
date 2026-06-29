@@ -1,13 +1,24 @@
 package com.mobileprogramming.finsheet.ui.navigation
 
-sealed class Screen(val route: String) {
-    object Dashboard : Screen("dashboard")
-    object AddTransaction : Screen("add_transaction")
-    object SelectCategory : Screen("select_category")
-    object AddCategory : Screen("add_category")
-    object History : Screen("history")
-    object Report : Screen("report")
-    object Settings : Screen("settings")
-    object Budget : Screen("budget")
-    object AddBudget : Screen("add_budget")
+import kotlinx.serialization.Serializable
+
+sealed class Screen {
+    @Serializable
+    object Dashboard : Screen()
+    @Serializable
+    object AddTransaction : Screen()
+    @Serializable
+    object SelectCategory : Screen()
+    @Serializable
+    object AddCategory : Screen()
+    @Serializable
+    object History : Screen()
+    @Serializable
+    object Report : Screen()
+    @Serializable
+    object Settings : Screen()
+    @Serializable
+    object Budget : Screen()
+    @Serializable
+    object AddBudget : Screen()
 }
