@@ -95,7 +95,7 @@ fun BottomNavigationBar(
                         .background(MaterialTheme.colorScheme.primary),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Filled.Add, contentDescription = "Add", tint = Color.White)
+                    Icon(Icons.Filled.Add, contentDescription = "Add", tint = MaterialTheme.colorScheme.onPrimary)
                 }
             },
             label  = { },

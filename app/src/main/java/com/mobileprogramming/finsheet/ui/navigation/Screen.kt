@@ -21,4 +21,6 @@ sealed class Screen {
     object Budget : Screen()
     @Serializable
     object AddBudget : Screen()
+    @Serializable
+    object Splash : Screen()
 }

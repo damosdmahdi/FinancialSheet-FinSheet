@@ -43,7 +43,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.mobileprogramming.finsheet.core.theme.tertiaryFixedDimLight
 import com.mobileprogramming.finsheet.ui.components.BottomNavigationBar
 import com.mobileprogramming.finsheet.ui.components.BudgetProgressItem
 import com.mobileprogramming.finsheet.ui.components.CategoryExpenseItem
@@ -147,7 +146,7 @@ fun TopBalanceCard(
             Text(
                 text = totalBalance,
                 style = MaterialTheme.typography.headlineLarge,
-                color = MaterialTheme.colorScheme.onPrimary
+                color = MaterialTheme.colorScheme.onPrimaryContainer
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -194,7 +193,7 @@ fun TopBalanceCard(
                         text = income,
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onPrimary,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
                         maxLines = 1
                     )
                 }
@@ -242,7 +241,7 @@ fun TopBalanceCard(
                         text = expense,
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onPrimary,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
                         maxLines = 1
                     )
                 }
@@ -375,7 +374,7 @@ private fun getCategoryColor(type: ExpenseCategoryType): Color {
     return when (type) {
         ExpenseCategoryType.FOOD -> MaterialTheme.colorScheme.primary
         ExpenseCategoryType.TRANSPORTATION -> MaterialTheme.colorScheme.secondaryContainer
-        ExpenseCategoryType.EDUCATION -> tertiaryFixedDimLight
+        ExpenseCategoryType.EDUCATION -> MaterialTheme.colorScheme.tertiary
         ExpenseCategoryType.OTHERS -> MaterialTheme.colorScheme.surfaceVariant
     }
 }
