@@ -367,6 +367,7 @@ private fun AddCategoryBottomBar(
         Row(
             modifier              = Modifier
                 .fillMaxWidth()
+                .navigationBarsPadding()
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
@@ -392,7 +393,7 @@ private fun AddCategoryBottomBar(
             Button(
                 onClick  = onSave,
                 modifier = Modifier
-                    .weight(2f)
+                    .weight(1f)
                     .height(50.dp),
                 shape    = RoundedCornerShape(12.dp),
                 colors   = ButtonDefaults.buttonColors(
