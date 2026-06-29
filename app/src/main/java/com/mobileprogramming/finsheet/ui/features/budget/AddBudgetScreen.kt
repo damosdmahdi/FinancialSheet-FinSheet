@@ -66,7 +66,7 @@ class RupiahVisualTransformation : VisualTransformation {
         
         val formattedText = try {
             val number = originalText.toLong()
-            val formatter = DecimalFormat("#,###", DecimalFormatSymbols(Locale("id", "ID")))
+            val formatter = DecimalFormat("#,###", DecimalFormatSymbols(Locale.Builder().setLanguage("id").setRegion("ID").build()))
             formatter.format(number).replace(',', '.')
         } catch (e: Exception) {
             originalText

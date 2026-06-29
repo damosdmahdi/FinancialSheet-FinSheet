@@ -106,7 +106,7 @@ fun formatRupiah(amount: String): String {
     if (amount.isEmpty()) return "0"
     return try {
         val number = amount.toLong()
-        val formatter = java.text.DecimalFormat("#,###", java.text.DecimalFormatSymbols(java.util.Locale("id", "ID")))
+        val formatter = java.text.DecimalFormat("#,###", java.text.DecimalFormatSymbols(java.util.Locale.Builder().setLanguage("id").setRegion("ID").build()))
         formatter.format(number).replace(',', '.')
     } catch (e: Exception) {
         amount

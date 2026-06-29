@@ -41,7 +41,7 @@ class DashboardViewModel : ViewModel() {
 
         _uiState.update { currentState ->
             currentState.copy(
-                totalBalance = "Rp 3.450.000",
+                totalBalance = "Rp 120.458.000",
                 incomeThisMonth = "Rp 5.200.000",
                 expenseThisMonth = "Rp 1.750.000",
                 totalExpenseForFilter = "Rp 1.750.000",
