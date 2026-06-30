@@ -74,3 +74,16 @@ Jika di masa depan ditemukan *legacy layout* atau XML yang tersisa:
 *   **Repository**: 
     *   Interface: `TransactionRepository` (di `domain/repository`)
     *   Implementasi: `TransactionRepositoryImpl` (di `data/repository`)
+
+## 6. UI/UX & Styling Guidelines
+*   **Konsistensi Komponen**: Tampilan UI/UX referensi yang diberikan (mockup/desain) mungkin tidak selalu 100% rapi atau sinkron. Namun, **SESUAIKAN** implementasinya dengan komponen UI yang sudah ada di dalam aplikasi (contoh: Navbar, AppBar) agar tetap seragam dan rapi.
+*   **Material Design 3**: Jika ada komponen UI yang mirip atau setara dengan salah satu komponen bawaan Material 3, **WAJIB** menggunakan template/komponen standar dari Material 3 tersebut (contoh: `NavigationBar`, `TopAppBar`, `FloatingActionButton`, dsb). Hindari membuat komponen kustom dari awal jika Material 3 sudah menyediakannya.
+*   **Konsistensi Warna**: Pewarnaan (Coloring) komponen UI **WAJIB** bersumber dari palet warna yang sudah didefinisikan di `app/src/main/java/com/mobileprogramming/finsheet/core/theme/Color.kt`. Hindari penggunaan warna *hardcoded* (seperti `Color(0xFF...)`) langsung di level Composable screen.
+*   **Dukungan Light/Dark Theme**: Pastikan pewarnaan (*coloring*) mendukung peralihan *Light Theme* dan *Dark Theme* dengan baik sehingga tidak ada warna yang tumpang tindih atau sulit dibaca. Sangat disarankan memanggil warna menggunakan semantik warna (`MaterialTheme.colorScheme`) agar sistem otomatis menyesuaikan palet ketika terjadi perubahan mode perangkat.
+
+## 7. Clean Code Guidelines
+1.  **Single Responsibility**: Pisahkan Composable yang terlalu besar/panjang menjadi fungsi-fungsi Composable kecil yang terisolasi dan *reusable*. Setiap fungsi harus melakukan satu tugas spesifik.
+2.  **State Hoisting**: Simpan status di level yang paling tinggi secara wajar, dan teruskan status tersebut ke bawah (*pass state down*) serta kirimkan *event* ke atas (*pass events up*). Hindari membuat *state* mandiri di dalam Composable kecil yang seharusnya *stateless*.
+3.  **No Hardcoded Values**: Gunakan sumber daya terpusat untuk teks/string (misalnya melalui objek konstan di file `.kt` atau tetap menggunakan `strings.xml` jika tersedia), referensi dimensi/spasi terpusat, maupun warna dari `Theme/Color.kt`. Hindari menggunakan *"Magic Numbers"* atau *string literal* secara langsung di dalam *source code*.
+4.  **No Business Logic in UI**: UI Layer (`Composable`) hanya boleh berisi kode untuk merender tampilan berdasarkan *State*. Semua logika bisnis, kalkulasi kompleks, atau pengolahan data harus diserahkan ke `UseCase` dan diekspos melalui `ViewModel`.
+5.  **Meaningful Naming**: Gunakan penamaan yang jelas dan dapat dipahami secara instan untuk fungsi, kelas, maupun variabel. Lebih baik panjang dan deskriptif daripada pendek tetapi ambigu (misal: gunakan `transactionList` alih-alih `data`).

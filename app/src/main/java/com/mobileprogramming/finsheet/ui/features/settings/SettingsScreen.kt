@@ -1,35 +1,50 @@
 package com.mobileprogramming.finsheet.ui.features.settings
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Palette
-import androidx.compose.material.icons.filled.PowerSettingsNew
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.Login
+import androidx.compose.material.icons.outlined.AccountCircle
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.TableView
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    onNavigateToBeranda: () -> Unit,
+    onNavigateToTransaksi: () -> Unit,
+    onNavigateToAddTransaction: () -> Unit,
+    onNavigateToAnggaran: () -> Unit
 ) {
-    var darkThemeEnabled by remember { mutableStateOf(false) }
+    var notifikasiTagihan by remember { mutableStateOf(true) }
+    var anggaranHarian by remember { mutableStateOf(true) }
+    var anggaranMingguan by remember { mutableStateOf(true) }
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Pengaturan") },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    titleContentColor = MaterialTheme.colorScheme.onSurface
-                )
+        bottomBar = {
+            com.mobileprogramming.finsheet.ui.components.BottomNavigationBar(
+                selectedItem = "Setelan",
+                onBerandaClick = onNavigateToBeranda,
+                onTransaksiClick = onNavigateToTransaksi,
+                onFabClick = onNavigateToAddTransaction,
+                onAnggaranClick = onNavigateToAnggaran,
+                onSettingsClick = { /* Do nothing */ }
             )
         },
         containerColor = MaterialTheme.colorScheme.background
@@ -38,126 +53,193 @@ fun SettingsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
+                .verticalScroll(rememberScrollState())
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            SettingsSection(title = "Umum") {
-                SettingsItem(
-                    icon = Icons.Default.AccountCircle,
-                    title = "Akun Profil",
-                    subtitle = "Kelola data pribadi Anda"
-                ) {
-                    // TODO: Navigate to Profile
-                }
-                SettingsItem(
-                    icon = Icons.Default.Notifications,
-                    title = "Notifikasi",
-                    subtitle = "Atur pengingat anggaran dan transaksi"
-                ) {
-                    // TODO: Navigate to Notifications
-                }
+            // Header
+            Column {
+                Text(
+                    text = "Pengaturan",
+                    style = MaterialTheme.typography.headlineLarge,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Kelola akun dan preferensi aplikasi Anda.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
 
-            SettingsSection(title = "Tampilan") {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainer
-                    ),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            // Account Card
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(20.dp)
                 ) {
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Palette,
-                            contentDescription = "Tema Gelap",
-                            tint = MaterialTheme.colorScheme.primary
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primary)
                         )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "STATUS AKUN",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(56.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.surface)
+                                .padding(2.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.AccountCircle,
+                                contentDescription = null,
+                                modifier = Modifier.size(36.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                         Spacer(modifier = Modifier.width(16.dp))
-                        Column(modifier = Modifier.weight(1f)) {
+                        Column {
                             Text(
-                                text = "Tema Gelap",
-                                style = MaterialTheme.typography.bodyLarge,
+                                text = "Masuk atau Daftar",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                text = "Ubah tampilan menjadi gelap",
+                                text = "Masuk untuk sinkronisasi data Anda",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                        Switch(
-                            checked = darkThemeEnabled,
-                            onCheckedChange = { darkThemeEnabled = it },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = MaterialTheme.colorScheme.primary,
-                                checkedTrackColor = MaterialTheme.colorScheme.primaryContainer
-                            )
+                    }
+                    Spacer(modifier = Modifier.height(20.dp))
+                    Button(
+                        onClick = { /* TODO */ },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Login,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Masuk dengan Google",
+                            style = MaterialTheme.typography.labelLarge
                         )
                     }
                 }
             }
+            
+            // Standard Cards
+            SettingsItemCard(
+                icon = Icons.Outlined.TableView,
+                title = "Pilih Google Sheet",
+                subtitle = "Pilih file untuk sinkronisasi data",
+                trailing = {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            )
 
-            Spacer(modifier = Modifier.weight(1f))
+            SettingsItemCard(
+                icon = Icons.Outlined.Notifications,
+                title = "Notifikasi Tagihan",
+                subtitle = "Pengingat jatuh tempo",
+                trailing = {
+                    Switch(
+                        checked = notifikasiTagihan,
+                        onCheckedChange = { notifikasiTagihan = it }
+                    )
+                }
+            )
 
-            Button(
-                onClick = { /* TODO: Implement Logout */ },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.errorContainer,
-                    contentColor = MaterialTheme.colorScheme.onErrorContainer
-                )
-            ) {
-                Icon(Icons.Default.PowerSettingsNew, contentDescription = "Keluar")
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "Keluar Akun",
-                    style = MaterialTheme.typography.labelLarge
-                )
-            }
+            SettingsItemCard(
+                icon = Icons.Outlined.Info,
+                title = "Tentang Aplikasi",
+                subtitle = "Versi 2.4.1 (Student Ed.)",
+                trailing = null // Hapus panah pada tentang aplikasi
+            )
+
+            // NOTIFIKASI ANGGARAN
+            Text(
+                text = "NOTIFIKASI ANGGARAN",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 8.dp, top = 8.dp)
+            )
+
+            SettingsSimpleCard(
+                title = "Anggaran Harian Terlewati",
+                trailing = {
+                    Switch(
+                        checked = anggaranHarian,
+                        onCheckedChange = { anggaranHarian = it }
+                    )
+                }
+            )
+
+            SettingsSimpleCard(
+                title = "Anggaran Mingguan Terlewati",
+                trailing = {
+                    Switch(
+                        checked = anggaranMingguan,
+                        onCheckedChange = { anggaranMingguan = it }
+                    )
+                }
+            )
+            
+            Spacer(modifier = Modifier.height(32.dp))
         }
     }
 }
 
 @Composable
-fun SettingsSection(
-    title: String,
-    content: @Composable ColumnScope.() -> Unit
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(start = 8.dp, bottom = 4.dp)
-        )
-        content()
-    }
-}
-
-@Composable
-fun SettingsItem(
+fun SettingsItemCard(
     icon: ImageVector,
     title: String,
     subtitle: String,
-    onClick: () -> Unit
+    trailing: @Composable (() -> Unit)? = null
 ) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
+        modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer
+            containerColor = MaterialTheme.colorScheme.surface
         ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.surfaceVariant),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(
@@ -166,17 +248,27 @@ fun SettingsItem(
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = title,
-                tint = MaterialTheme.colorScheme.primary
-            )
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
             Spacer(modifier = Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = title,
                     style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Medium
                 )
                 Text(
                     text = subtitle,
@@ -184,6 +276,41 @@ fun SettingsItem(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+            if (trailing != null) {
+                trailing()
+            }
+        }
+    }
+}
+
+@Composable
+fun SettingsSimpleCard(
+    title: String,
+    trailing: @Composable () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.surfaceVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.Medium
+            )
+            trailing()
         }
     }
 }

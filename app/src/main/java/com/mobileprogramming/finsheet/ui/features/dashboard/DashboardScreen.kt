@@ -34,7 +34,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -43,7 +43,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.mobileprogramming.finsheet.core.theme.tertiaryFixedDimLight
 import com.mobileprogramming.finsheet.ui.components.BottomNavigationBar
 import com.mobileprogramming.finsheet.ui.components.BudgetProgressItem
 import com.mobileprogramming.finsheet.ui.components.CategoryExpenseItem
@@ -53,13 +52,23 @@ import com.mobileprogramming.finsheet.ui.components.FilterChipsRow
 fun DashboardScreen(
     viewModel: DashboardViewModel = viewModel(),
     onNavigateToAddTransaction: () -> Unit,
+    onNavigateToHistory: () -> Unit,
     onNavigateToReport: () -> Unit,
-    onNavigateToSettings: () -> Unit
+    onNavigateToSettings: () -> Unit,
+    onNavigateToAnggaran: () -> Unit
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     Scaffold(
-        bottomBar = { BottomNavigationBar(onFabClick = onNavigateToAddTransaction) },
+        bottomBar = {
+            BottomNavigationBar(
+                selectedItem = "Beranda",
+                onFabClick = onNavigateToAddTransaction,
+                onTransaksiClick = onNavigateToHistory,
+                onAnggaranClick = onNavigateToAnggaran,
+                onSettingsClick = onNavigateToSettings
+            )
+        },
         containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
         Column(
@@ -137,7 +146,7 @@ fun TopBalanceCard(
             Text(
                 text = totalBalance,
                 style = MaterialTheme.typography.headlineLarge,
-                color = MaterialTheme.colorScheme.onPrimary
+                color = MaterialTheme.colorScheme.onPrimaryContainer
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -155,54 +164,89 @@ fun TopBalanceCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Column {
+                // --- Pemasukan ---
+                Column(modifier = Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
                             Icons.Filled.ArrowDownward,
                             contentDescription = "Pemasukan",
                             tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
-                            modifier = Modifier.size(16.dp)
+                            modifier = Modifier.size(14.dp)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text = "Pemasukan bulan ini",
+                            text = "Pemasukan",
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                            maxLines = 1
                         )
                     }
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "Bulan Ini",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f),
+                        maxLines = 1
+                    )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = income,
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onPrimary
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        maxLines = 1
                     )
                 }
 
-                Column {
+                // Divider vertikal
+                Box(
+                    modifier = Modifier
+                        .width(1.dp)
+                        .height(52.dp)
+                        .background(
+                            MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f)
+                        )
+                        .align(Alignment.CenterVertically)
+                )
+
+                // --- Pengeluaran ---
+                Column(
+                    modifier = Modifier.weight(1f),
+                    horizontalAlignment = Alignment.End
+                ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
                             Icons.Filled.ArrowUpward,
                             contentDescription = "Pengeluaran",
                             tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
-                            modifier = Modifier.size(16.dp)
+                            modifier = Modifier.size(14.dp)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text = "Pengeluaran bulan ini",
+                            text = "Pengeluaran",
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                            maxLines = 1
                         )
                     }
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "Bulan Ini",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f),
+                        maxLines = 1
+                    )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = expense,
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onPrimary
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        maxLines = 1
                     )
                 }
             }
+
         }
     }
 }
@@ -330,7 +374,7 @@ private fun getCategoryColor(type: ExpenseCategoryType): Color {
     return when (type) {
         ExpenseCategoryType.FOOD -> MaterialTheme.colorScheme.primary
         ExpenseCategoryType.TRANSPORTATION -> MaterialTheme.colorScheme.secondaryContainer
-        ExpenseCategoryType.EDUCATION -> tertiaryFixedDimLight
+        ExpenseCategoryType.EDUCATION -> MaterialTheme.colorScheme.tertiary
         ExpenseCategoryType.OTHERS -> MaterialTheme.colorScheme.surfaceVariant
     }
 }
