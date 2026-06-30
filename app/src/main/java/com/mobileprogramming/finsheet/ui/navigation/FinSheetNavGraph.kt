@@ -12,6 +12,7 @@ import com.mobileprogramming.finsheet.ui.features.history.HistoryScreen
 import com.mobileprogramming.finsheet.ui.features.report.ReportScreen
 import com.mobileprogramming.finsheet.ui.features.settings.SettingsScreen
 import com.mobileprogramming.finsheet.ui.features.budget.AddBudgetScreen
+import com.mobileprogramming.finsheet.ui.features.auth.LoginScreen
 
 @Composable
 fun FinSheetNavGraph(
@@ -22,6 +23,16 @@ fun FinSheetNavGraph(
         navController = navController,
         startDestination = startDestination
     ) {
+        composable<Screen.Login> {
+            LoginScreen(
+                onNavigateToDashboard = {
+                    navController.navigate(Screen.Dashboard) {
+                        popUpTo<Screen.Login> { inclusive = true }
+                    }
+                }
+            )
+        }
+        
         composable<Screen.Dashboard> {
             DashboardScreen(
                 onNavigateToAddTransaction = {
