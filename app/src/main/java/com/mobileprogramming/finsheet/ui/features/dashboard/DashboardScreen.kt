@@ -63,7 +63,9 @@ fun DashboardScreen(
         bottomBar = {
             BottomNavigationBar(
                 onFabClick = onNavigateToAddTransaction,
-                onTransaksiClick = onNavigateToHistory
+                onTransaksiClick = onNavigateToHistory,
+                onAnggaranClick = onNavigateToReport,
+                onSettingsClick = onNavigateToSettings
             )
         },
         containerColor = MaterialTheme.colorScheme.background

@@ -125,7 +125,9 @@ fun HistoryScreen(
     onNavigateBack: () -> Unit = {},
     onNavigateToAddTransaction: () -> Unit = {},
     onNavigateToDashboard: () -> Unit = {},
-    onNavigateToTransaction: () -> Unit = {}   // [REVISI 3] navigasi ke halaman transaksi
+    onNavigateToTransaction: () -> Unit = {},   // [REVISI 3] navigasi ke halaman transaksi
+    onNavigateToAnggaran: () -> Unit = {},
+    onNavigateToSettings: () -> Unit = {}
 ) {
     /* ---- Local UI state ---- */
     var selectedFilter          by remember { mutableStateOf(TransactionFilter.SEMUA) }
@@ -262,6 +264,8 @@ fun HistoryScreen(
                 onFabClick       = onNavigateToAddTransaction,
                 onBerandaClick   = onNavigateToDashboard,
                 onTransaksiClick = { /* sudah berada di layar ini */ },
+                onAnggaranClick  = onNavigateToAnggaran,
+                onSettingsClick  = onNavigateToSettings,
                 selectedItem     = "Transaksi"
             )
         }

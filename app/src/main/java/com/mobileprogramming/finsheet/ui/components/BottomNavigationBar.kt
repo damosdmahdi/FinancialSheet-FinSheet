@@ -34,6 +34,8 @@ fun BottomNavigationBar(
     onFabClick: () -> Unit = {},
     onBerandaClick: () -> Unit = {},
     onTransaksiClick: () -> Unit = {},
+    onAnggaranClick: () -> Unit = {},
+    onSettingsClick: () -> Unit = {},
     selectedItem: String = "Beranda"     // kontrol tab aktif dari pemanggil
 ) {
     NavigationBar(
@@ -107,7 +109,7 @@ fun BottomNavigationBar(
         // Anggaran
         NavigationBarItem(
             selected = selectedItem == "Anggaran",
-            onClick  = { /*TODO*/ },
+            onClick  = onAnggaranClick,
             icon     = {
                 Icon(
                     if (selectedItem == "Anggaran") Icons.Filled.PieChart
@@ -126,7 +128,7 @@ fun BottomNavigationBar(
         // Settings
         NavigationBarItem(
             selected = selectedItem == "Settings",
-            onClick  = { /*TODO*/ },
+            onClick  = onSettingsClick,
             icon     = {
                 Icon(
                     if (selectedItem == "Settings") Icons.Filled.Settings

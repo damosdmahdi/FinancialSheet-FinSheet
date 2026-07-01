@@ -52,6 +52,18 @@ fun FinSheetNavGraph(
                 },
                 onNavigateToTransaction = {
                     navController.navigate(Screen.AddTransaction.route)
+                },
+                onNavigateToAnggaran = {
+                    navController.navigate(Screen.Report.route) {
+                        popUpTo(Screen.Dashboard.route) { inclusive = false }
+                        launchSingleTop = true
+                    }
+                },
+                onNavigateToSettings = {
+                    navController.navigate(Screen.Settings.route) {
+                        popUpTo(Screen.Dashboard.route) { inclusive = false }
+                        launchSingleTop = true
+                    }
                 }
             )
         }
