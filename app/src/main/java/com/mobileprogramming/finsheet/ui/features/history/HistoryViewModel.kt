@@ -49,6 +49,7 @@ enum class TransactionFilter { SEMUA, PENGELUARAN, PEMASUKAN }
 
 class HistoryViewModel(
     private val getAllTransactionsUseCase: GetAllTransactionsUseCase,
+    private val syncTransactionsUseCase: SyncTransactionsUseCase,
     private val getActiveCurrencyFlowUseCase: GetActiveCurrencyFlowUseCase
 ) : ViewModel() {
 

@@ -157,7 +157,45 @@ object Injection {
         val repo = provideCurrencyRepository(context)
         return com.mobileprogramming.finsheet.ui.features.history.HistoryViewModelFactory(
             getAllTransactionsUseCase = provideGetAllTransactionsUseCase(context),
+            syncTransactionsUseCase = provideSyncTransactionsUseCase(context),
             getActiveCurrencyFlowUseCase = com.mobileprogramming.finsheet.domain.usecase.currency.GetActiveCurrencyFlowUseCase(repo)
+        )
+    }
+
+    fun provideBudgetViewModelFactory(context: Context): BudgetViewModelFactory {
+        return BudgetViewModelFactory(
+            provideGetBudgetScreenDataUseCase(context),
+            provideSaveCategoryBudgetsUseCase(context),
+            provideDeleteBudgetUseCase(context),
+            provideSharedPreferences(context)
+        )
+    }
+
+    fun provideAddBudgetViewModelFactory(context: Context): AddBudgetViewModelFactory {
+        return AddBudgetViewModelFactory(
+            provideCategoryRepository(context),
+            provideSaveCategoryBudgetsUseCase(context)
+        )
+    }
+
+    fun provideCheckTransactionBudgetLimitUseCase(context: Context): com.mobileprogramming.finsheet.domain.usecase.budget.CheckTransactionBudgetLimitUseCase {
+        return com.mobileprogramming.finsheet.domain.usecase.budget.CheckTransactionBudgetLimitUseCase(
+            provideBudgetRepository(context),
+            provideTransactionRepository(context)
+        )
+    }
+
+    fun provideSyncTransactionsUseCase(context: Context): com.mobileprogramming.finsheet.domain.usecase.transaction.SyncTransactionsUseCase {
+        val db = provideDatabase(context)
+        val sheetsRepo = com.mobileprogramming.finsheet.data.remote.GoogleSheetsRepository(context)
+        val authClient = com.mobileprogramming.finsheet.ui.features.auth.GoogleAuthClient(
+            context = context,
+            auth = com.google.firebase.auth.FirebaseAuth.getInstance()
+        )
+        return com.mobileprogramming.finsheet.domain.usecase.transaction.SyncTransactionsUseCase(
+            transactionDao = db.transactionDao(),
+            sheetsRepository = sheetsRepo,
+            authClient = authClient
         )
     }
 
@@ -173,6 +211,9 @@ object Injection {
             getTransactionByIdUseCase = com.mobileprogramming.finsheet.domain.usecase.GetTransactionByIdUseCase(transactionRepo),
             getCategoriesByTypeUseCase = com.mobileprogramming.finsheet.domain.usecase.GetCategoriesByTypeUseCase(categoryRepo),
             addCategoryUseCase = com.mobileprogramming.finsheet.domain.usecase.AddCategoryUseCase(categoryRepo),
+            checkTransactionBudgetLimitUseCase = provideCheckTransactionBudgetLimitUseCase(context),
+            sharedPreferences = provideSharedPreferences(context),
+            context = context.applicationContext,
             getActiveCurrencyFlowUseCase = com.mobileprogramming.finsheet.domain.usecase.currency.GetActiveCurrencyFlowUseCase(currencyRepo)
         )
     }
@@ -180,6 +221,7 @@ object Injection {
     fun provideSettingsViewModelFactory(context: Context): com.mobileprogramming.finsheet.ui.features.settings.SettingsViewModelFactory {
         val repo = provideCurrencyRepository(context)
         return com.mobileprogramming.finsheet.ui.features.settings.SettingsViewModelFactory(
+            sharedPreferences = provideSharedPreferences(context),
             getActiveCurrencyUseCase = GetActiveCurrencyUseCase(repo),
             getAllCurrenciesUseCase = GetAllCurrenciesUseCase(repo),
             setPreferredCurrencyUseCase = SetPreferredCurrencyUseCase(repo),

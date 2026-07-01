@@ -43,10 +43,12 @@ private fun formatDateMillis(millis: Long): String {
 fun HistoryScreen(
     viewModel: HistoryViewModel = viewModel(
         factory = Injection.provideHistoryViewModelFactory(LocalContext.current.applicationContext)
+        factory = Injection.provideHistoryViewModelFactory(LocalContext.current.applicationContext)
     ),
     onNavigateBack: () -> Unit = {},
     onNavigateToAddTransaction: () -> Unit = {},
     onNavigateToDashboard: () -> Unit = {},
+    onNavigateToTransaction: (String) -> Unit = {},
     onNavigateToTransaction: (String) -> Unit = {},
     onNavigateToAnggaran: () -> Unit = {},
     onNavigateToSettings: () -> Unit = {}
@@ -203,6 +205,7 @@ fun HistoryScreen(
                         ),
                         color = MaterialTheme.colorScheme.onSurface
                     )
+                    val context = LocalContext.current
                     SyncStatusChip(
                         isSyncing = isSyncing,
                         primaryBlue = primaryBlue,
