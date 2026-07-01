@@ -49,39 +49,32 @@ import androidx.core.content.FileProvider
 import java.io.File
 
 // ---------------------------------------------------------------------------
-// Data model (UI-only, to be replaced by domain model + ViewModel later)
+// Helpers for ViewModel Mapping
 // ---------------------------------------------------------------------------
 
-private enum class TransactionType { PENGELUARAN, PEMASUKAN }
-
 private data class CategoryItem(
+    val id: String?,
     val label: String,
     val icon: ImageVector,
     val bgColor: Color = Color.Transparent,
     val iconColor: Color = Color.Unspecified
 )
 
-// Kategori Pengeluaran
-private val expenseCategories = listOf(
-    CategoryItem("Makanan",   Icons.Outlined.Restaurant,    Color(0xFFFFF0E0), Color(0xFFFF8C00)),
-    CategoryItem("Transport", Icons.Outlined.DirectionsCar, Color(0xFFFFF0E0), Color(0xFFFF8C00)),
-    CategoryItem("Belanja",   Icons.Outlined.ShoppingCart,  Color(0xFFFFEBEB), Color(0xFFE53935)),
-    CategoryItem("Edukasi",   Icons.Outlined.School,        Color(0xFFE8EEFF), Color(0xFF1A5BEB)),
-    CategoryItem("Lainnya",   Icons.Outlined.MoreHoriz,     Color(0xFFF0F0F8), Color(0xFF7B7FA6)),
-    CategoryItem("Tambah",    Icons.Filled.Add,             Color(0xFFF0F0F8), Color(0xFF7B7FA6))
-)
-
-// Kategori Pemasukan
-private val incomeCategories = listOf(
-    CategoryItem("Uang Saku",  Icons.Outlined.Savings,           Color(0xFFE8EEFF), Color(0xFF1A5BEB)),
-    CategoryItem("Gaji",       Icons.Outlined.AccountBalanceWallet, Color(0xFFE8FFE8), Color(0xFF2E7D32)),
-    CategoryItem("Freelance",  Icons.Outlined.Laptop,            Color(0xFFFFF0E0), Color(0xFFFF8C00)),
-    CategoryItem("Beasiswa",   Icons.Outlined.School,            Color(0xFFF3E5FF), Color(0xFF7B1FA2)),
-    CategoryItem("Hadiah",     Icons.Outlined.CardGiftcard,      Color(0xFFFFEBEB), Color(0xFFE53935)),
-    CategoryItem("Penjualan",  Icons.Outlined.Storefront,        Color(0xFFE0FFF4), Color(0xFF00897B)),
-    CategoryItem("Lainnya",    Icons.Outlined.MoreHoriz,         Color(0xFFF0F0F8), Color(0xFF7B7FA6)),
-    CategoryItem("Tambah",     Icons.Filled.Add,                 Color(0xFFF0F0F8), Color(0xFF7B7FA6))
-)
+private fun mapCategoriesToUI(categories: List<com.mobileprogramming.finsheet.data.local.entity.CategoryEntity>): List<CategoryItem> {
+    val items = categories.take(6).map {
+        CategoryItem(
+            id = it.id,
+            label = it.categoryName,
+            icon = CategoryIconMapper.getIconByName(it.icon),
+            bgColor = CategoryIconMapper.getBackgroundColorByHex(it.color),
+            iconColor = CategoryIconMapper.getColorByHex(it.color)
+        )
+    }.toMutableList()
+    
+    items.add(CategoryItem(null, "Lainnya", Icons.Outlined.MoreHoriz, Color(0xFFF0F0F8), Color(0xFF7B7FA6)))
+    items.add(CategoryItem(null, "Tambah", Icons.Filled.Add, Color(0xFFF0F0F8), Color(0xFF7B7FA6)))
+    return items
+}
 
 // ---------------------------------------------------------------------------
 // Helper — buat URI sementara untuk foto kamera via FileProvider
@@ -136,27 +129,36 @@ private fun decodeBitmapWithCorrectOrientation(context: Context, uri: Uri): Bitm
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddTransactionScreen(
+    viewModel: AddEditTransactionViewModel,
     onNavigateBack: () -> Unit,
     onNavigateToSelectCategory: () -> Unit,
     onNavigateToAddCategory: () -> Unit
 ) {
-    /* ---- Local UI state (to be lifted to ViewModel) ---- */
-    var selectedType by remember { mutableStateOf(TransactionType.PENGELUARAN) }
-    var selectedCurrency by remember { mutableStateOf("USD") }
-    var amountText by remember { mutableStateOf("15.50") }
-    var selectedCategory by remember { mutableStateOf("Makanan") }
-    var noteText by remember { mutableStateOf("") }
+    val state by viewModel.state.collectAsState()
+    
+    /* ---- Local UI state ---- */
+    var selectedCurrency by remember { mutableStateOf("IDR") }
     var currencyDropdownExpanded by remember { mutableStateOf(false) }
 
     // DatePicker state
     var showDatePicker by remember { mutableStateOf(false) }
     val datePickerState = rememberDatePickerState(
-        initialSelectedDateMillis = System.currentTimeMillis()
+        initialSelectedDateMillis = state.date
     )
-    val dateText = remember(datePickerState.selectedDateMillis) {
-        val millis = datePickerState.selectedDateMillis ?: System.currentTimeMillis()
+    val dateText = remember(datePickerState.selectedDateMillis, state.date) {
+        val millis = datePickerState.selectedDateMillis ?: state.date
         val sdf = java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.forLanguageTag("id-ID"))
         sdf.format(java.util.Date(millis))
+    }
+    
+    LaunchedEffect(datePickerState.selectedDateMillis) {
+        datePickerState.selectedDateMillis?.let { viewModel.onDateChanged(it) }
+    }
+    
+    LaunchedEffect(state.saveSuccess) {
+        if (state.saveSuccess) {
+            onNavigateBack()
+        }
     }
 
     val primaryBlue = Color(0xFF1A5BEB)
@@ -212,7 +214,7 @@ fun AddTransactionScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "Catat Transaksi",
+                        text = if (state.isEditMode) "Edit Transaksi" else "Catat Transaksi",
                         style = MaterialTheme.typography.titleLarge.copy(
                             fontWeight = FontWeight.Bold
                         )
@@ -248,15 +250,8 @@ fun AddTransactionScreen(
             // 1. Segmented Pill Toggle
             // ----------------------------------------------------------------
             SegmentedTypeToggle(
-                selected = selectedType,
-                onSelect = {
-                    selectedType = it
-                    // Reset pilihan kategori saat ganti tab agar tidak mismatch
-                    selectedCategory = if (it == TransactionType.PENGELUARAN)
-                        expenseCategories.first().label
-                    else
-                        incomeCategories.first().label
-                },
+                selected = state.transactionType,
+                onSelect = { viewModel.onTypeChanged(it) },
                 primaryBlue = primaryBlue
             )
 
@@ -265,8 +260,8 @@ fun AddTransactionScreen(
             // ----------------------------------------------------------------
             AmountInputCard(
                 currency = selectedCurrency,
-                amountText = amountText,
-                onAmountChange = { amountText = it },
+                amountText = state.amount,
+                onAmountChange = { viewModel.onAmountChanged(it) },
                 dropdownExpanded = currencyDropdownExpanded,
                 onDropdownToggle = { currencyDropdownExpanded = !currencyDropdownExpanded },
                 onDropdownDismiss = { currencyDropdownExpanded = false },
@@ -280,9 +275,8 @@ fun AddTransactionScreen(
             // ----------------------------------------------------------------
             // 3. Kategori Label + Grid
             // ----------------------------------------------------------------
-            val currentCategories = if (selectedType == TransactionType.PENGELUARAN)
-                expenseCategories else incomeCategories
-            val categoryLabel = if (selectedType == TransactionType.PENGELUARAN)
+            val currentCategories = mapCategoriesToUI(state.categories)
+            val categoryLabel = if (state.transactionType == "EXPENSE")
                 "Kategori Pengeluaran" else "Kategori Pemasukan"
 
             Text(
@@ -294,8 +288,13 @@ fun AddTransactionScreen(
 
             CategoryGrid(
                 categories = currentCategories,
-                selectedLabel = selectedCategory,
-                onCategorySelected = { selectedCategory = it },
+                selectedLabel = state.selectedCategory?.categoryName ?: "",
+                onCategorySelected = { label -> 
+                    // Find actual category entity
+                    state.categories.find { it.categoryName == label }?.let { cat ->
+                        viewModel.onCategorySelected(cat)
+                    }
+                },
                 onNavigateToSelectCategory = onNavigateToSelectCategory,
                 onNavigateToAddCategory = onNavigateToAddCategory,
                 primaryBlue = primaryBlue
@@ -354,8 +353,8 @@ fun AddTransactionScreen(
             // 5. Catatan Field
             // ----------------------------------------------------------------
             OutlinedTextField(
-                value = noteText,
-                onValueChange = { noteText = it },
+                value = state.notes,
+                onValueChange = { viewModel.onNotesChanged(it) },
                 label = { Text("Catatan (Opsional)") },
                 placeholder = { Text("Contoh: Beli buku referensi") },
                 leadingIcon = {
@@ -538,7 +537,7 @@ fun AddTransactionScreen(
             // ----------------------------------------------------------------
             ActionButtonsRow(
                 onCancel = onNavigateBack,
-                onSave = { /* TODO: dispatch ViewModel save action */ },
+                onSave = { viewModel.saveTransaction() },
                 primaryBlue = primaryBlue
             )
 
@@ -553,8 +552,8 @@ fun AddTransactionScreen(
 
 @Composable
 private fun SegmentedTypeToggle(
-    selected: TransactionType,
-    onSelect: (TransactionType) -> Unit,
+    selected: String,
+    onSelect: (String) -> Unit,
     primaryBlue: Color
 ) {
     val segmentedBg = MaterialTheme.colorScheme.surfaceContainerHigh
@@ -567,13 +566,13 @@ private fun SegmentedTypeToggle(
     ) {
         Row(modifier = Modifier.fillMaxWidth()) {
             // Pengeluaran tab
-            val isExpense = selected == TransactionType.PENGELUARAN
+            val isExpense = selected == "EXPENSE"
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .clip(RoundedCornerShape(50.dp))
                     .background(if (isExpense) primaryBlue else Color.Transparent)
-                    .clickable { onSelect(TransactionType.PENGELUARAN) }
+                    .clickable { onSelect("EXPENSE") }
                     .padding(vertical = 10.dp),
                 contentAlignment = Alignment.Center
             ) {
@@ -586,13 +585,13 @@ private fun SegmentedTypeToggle(
             }
 
             // Pemasukan tab
-            val isIncome = selected == TransactionType.PEMASUKAN
+            val isIncome = selected == "INCOME"
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .clip(RoundedCornerShape(50.dp))
                     .background(if (isIncome) primaryBlue else Color.Transparent)
-                    .clickable { onSelect(TransactionType.PEMASUKAN) }
+                    .clickable { onSelect("INCOME") }
                     .padding(vertical = 10.dp),
                 contentAlignment = Alignment.Center
             ) {

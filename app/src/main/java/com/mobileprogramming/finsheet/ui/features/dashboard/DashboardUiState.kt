@@ -11,13 +11,15 @@ data class DashboardUiState(
 )
 
 data class CategoryExpenseData(
-    val categoryType: ExpenseCategoryType,
+    val iconName: String?,
+    val colorHex: String?,
     val categoryName: String,
     val percentage: String
 )
 
 data class BudgetProgressData(
-    val categoryType: ExpenseCategoryType,
+    val iconName: String?,
+    val colorHex: String?,
     val budgetName: String,
     val percentage: String,
     val progress: Float,
@@ -25,10 +27,3 @@ data class BudgetProgressData(
     val totalAmountStr: String,
     val remainingAmountStr: String
 )
-
-enum class ExpenseCategoryType {
-    FOOD,
-    TRANSPORTATION,
-    EDUCATION,
-    OTHERS
-}
