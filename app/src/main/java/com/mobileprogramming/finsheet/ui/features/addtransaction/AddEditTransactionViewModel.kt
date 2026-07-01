@@ -20,6 +20,7 @@ import android.content.SharedPreferences
 import com.mobileprogramming.finsheet.domain.usecase.budget.CheckTransactionBudgetLimitUseCase
 import com.mobileprogramming.finsheet.domain.usecase.budget.BudgetExceedType
 import com.mobileprogramming.finsheet.core.utils.NotificationHelper
+import kotlin.math.roundToInt
 
 data class AddEditTransactionState(
     val transactionId: String? = null,
@@ -41,6 +42,7 @@ class AddEditTransactionViewModel(
     private val updateTransactionUseCase: UpdateTransactionUseCase,
     private val getTransactionByIdUseCase: GetTransactionByIdUseCase,
     private val getCategoriesByTypeUseCase: GetCategoriesByTypeUseCase,
+    private val getActiveCurrencyFlowUseCase: GetActiveCurrencyFlowUseCase,
     private val checkTransactionBudgetLimitUseCase: CheckTransactionBudgetLimitUseCase,
     private val sharedPreferences: SharedPreferences,
     private val context: Context

@@ -27,19 +27,11 @@ import com.mobileprogramming.finsheet.ui.components.BottomNavigationBar
 import java.text.SimpleDateFormat
 import java.util.*
 
-// ---------------------------------------------------------------------------
-// Screen
-// ---------------------------------------------------------------------------
-
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mobileprogramming.finsheet.di.Injection
 import com.mobileprogramming.finsheet.ui.features.addtransaction.CategoryIconMapper
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 
 private fun formatDateMillis(millis: Long): String {
     val sdf = SimpleDateFormat("d MMM yyyy", Locale.forLanguageTag("id-ID"))
@@ -50,15 +42,12 @@ private fun formatDateMillis(millis: Long): String {
 @Composable
 fun HistoryScreen(
     viewModel: HistoryViewModel = viewModel(
-        factory = HistoryViewModelFactory(
-            Injection.provideGetAllTransactionsUseCase(LocalContext.current.applicationContext),
-            Injection.provideSyncTransactionsUseCase(LocalContext.current.applicationContext)
-        )
+        factory = Injection.provideHistoryViewModelFactory(LocalContext.current.applicationContext)
     ),
     onNavigateBack: () -> Unit = {},
     onNavigateToAddTransaction: () -> Unit = {},
     onNavigateToDashboard: () -> Unit = {},
-    onNavigateToTransaction: (String) -> Unit = {},   // [REVISI 3] navigasi ke halaman transaksi
+    onNavigateToTransaction: (String) -> Unit = {},
     onNavigateToAnggaran: () -> Unit = {},
     onNavigateToSettings: () -> Unit = {}
 ) {
@@ -209,7 +198,6 @@ fun HistoryScreen(
                         ),
                         color = MaterialTheme.colorScheme.onSurface
                     )
-                    // [REVISI 2] Chip yang bisa diklik untuk sinkron manual
                     val context = LocalContext.current
                     SyncStatusChip(
                         isSyncing = isSyncing,

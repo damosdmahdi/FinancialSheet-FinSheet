@@ -10,10 +10,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.Login
-import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.outlined.AccountCircle
-import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.TableView
 import androidx.compose.material.icons.outlined.CameraAlt
 import androidx.compose.material.icons.outlined.Photo
@@ -44,12 +41,14 @@ import android.Manifest
 import android.content.pm.PackageManager
 import java.io.File
 import coil.compose.AsyncImage
+import com.mobileprogramming.finsheet.di.Injection
+import com.mobileprogramming.finsheet.data.local.entity.CurrencyEntity
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     viewModel: SettingsViewModel = viewModel(
-        factory = com.mobileprogramming.finsheet.di.Injection.provideSettingsViewModelFactory(
+        factory = Injection.provideSettingsViewModelFactory(
             LocalContext.current.applicationContext
         )
     ),
@@ -61,8 +60,13 @@ fun SettingsScreen(
     onNavigateToLogin: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val activeCurrency by viewModel.activeCurrency.collectAsState()
+    val currencies by viewModel.currencies.collectAsState()
+    val isSyncing by viewModel.isSyncing.collectAsState()
+    
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+    
     val profileBitmap = remember(uiState.customProfilePhotoPath) {
         uiState.customProfilePhotoPath?.let { path ->
             try {
@@ -74,6 +78,7 @@ fun SettingsScreen(
     }
 
     var showPhotoSourceDialog by remember { mutableStateOf(false) }
+    var showCurrencyDialog by remember { mutableStateOf(false) }
 
     val cameraImageUri = remember {
         val imageDir = File(context.cacheDir, "images").also { it.mkdirs() }
@@ -256,7 +261,6 @@ fun SettingsScreen(
             },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    // Kamera
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -284,7 +288,6 @@ fun SettingsScreen(
                             color = primaryBlue
                         )
                     }
-                    // Galeri
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -565,6 +568,60 @@ fun SettingsScreen(
                 }
             )
 
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                ),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.surfaceVariant),
+                onClick = { showCurrencyDialog = true }
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = activeCurrency?.symbol ?: "Rp",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Mata Uang",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Text(
+                            text = activeCurrency?.name ?: "Indonesian Rupiah",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    if (isSyncing) {
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                    } else {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
 
 
             // NOTIFIKASI ANGGARAN
@@ -606,6 +663,55 @@ fun SettingsScreen(
             )
             
             Spacer(modifier = Modifier.height(32.dp))
+        }
+
+        if (showCurrencyDialog) {
+            AlertDialog(
+                onDismissRequest = { showCurrencyDialog = false },
+                title = { Text(text = "Pilih Mata Uang") },
+                text = {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().height(300.dp).verticalScroll(rememberScrollState())
+                    ) {
+                        currencies.forEach { currency ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 12.dp)
+                                    .background(
+                                        color = if (currency.code == activeCurrency?.code) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+                                        shape = RoundedCornerShape(8.dp)
+                                    ),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                TextButton(
+                                    onClick = {
+                                        viewModel.setPreferredCurrency(currency.code)
+                                        showCurrencyDialog = false
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(
+                                        text = "${currency.code} - ${currency.name}",
+                                        color = if (currency.code == activeCurrency?.code) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    Text(
+                                        text = currency.symbol,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { showCurrencyDialog = false }) {
+                        Text(text = "Tutup")
+                    }
+                }
+            )
         }
     }
 }
