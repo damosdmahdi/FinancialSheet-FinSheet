@@ -59,7 +59,7 @@ fun LoginScreen(
             fontSize = 14.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        
+
         Spacer(modifier = Modifier.height(48.dp))
 
         if (isLoading) {
@@ -85,6 +85,30 @@ fun LoginScreen(
             ) {
                 Text(text = "Sign in with Google", fontSize = 16.sp)
             }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            OutlinedButton(
+                onClick = {
+                    coroutineScope.launch {
+                        isLoading = true
+                        val result = authClient.signInAsGuest()
+                        isLoading = false
+                        if (result != null) {
+                            Toast.makeText(context, "Masuk sebagai Guest Berhasil", Toast.LENGTH_SHORT).show()
+                            onNavigateToDashboard()
+                        } else {
+                            Toast.makeText(context, "Gagal masuk sebagai Guest", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
+            ) {
+                Text(text = "Masuk sebagai Guest", fontSize = 16.sp)
+            }
+
         }
     }
 }

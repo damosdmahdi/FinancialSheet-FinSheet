@@ -28,18 +28,23 @@ class GoogleAuthClient(
     private val webClientId = BuildConfig.WEB_CLIENT_ID
 
     suspend fun signIn(): AuthResult? {
-        val googleIdOption = GetGoogleIdOption.Builder()
-            .setFilterByAuthorizedAccounts(false)
-            .setServerClientId(webClientId)
-            .setAutoSelectEnabled(true)
-            .setNonce(generateNonce())
-            .build()
-
-        val request = GetCredentialRequest.Builder()
-            .addCredentialOption(googleIdOption)
-            .build()
+        if (webClientId.isBlank()) {
+            Log.e("GoogleAuthClient", "Web Client ID is empty. Please set WEB_CLIENT_ID in local.properties")
+            return null
+        }
 
         return try {
+            val googleIdOption = GetGoogleIdOption.Builder()
+                .setFilterByAuthorizedAccounts(false)
+                .setServerClientId(webClientId)
+                .setAutoSelectEnabled(true)
+                .setNonce(generateNonce())
+                .build()
+
+            val request = GetCredentialRequest.Builder()
+                .addCredentialOption(googleIdOption)
+                .build()
+
             val result = credentialManager.getCredential(
                 request = request,
                 context = context
@@ -47,6 +52,12 @@ class GoogleAuthClient(
             handleSignIn(result)
         } catch (e: GetCredentialException) {
             Log.e("GoogleAuthClient", "Sign-in failed", e)
+            null
+        } catch (e: IllegalArgumentException) {
+            Log.e("GoogleAuthClient", "Invalid argument during sign in", e)
+            null
+        } catch (e: Exception) {
+            Log.e("GoogleAuthClient", "Unexpected error during sign in", e)
             null
         }
     }
@@ -83,5 +94,14 @@ class GoogleAuthClient(
 
     fun signOut() {
         auth.signOut()
+    }
+
+    suspend fun signInAsGuest(): AuthResult? {
+        return try {
+            auth.signInAnonymously().await()
+        } catch (e: Exception) {
+            Log.e("GoogleAuthClient", "Guest sign-in failed", e)
+            null
+        }
     }
 }

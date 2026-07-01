@@ -298,7 +298,7 @@ fun HistoryScreen(
                             item        = tx,
                             incomeGreen = incomeGreen,
                             expenseRed  = expenseRed,
-                            onClick     = { onNavigateToTransaction(tx.id) }, 
+                            onClick     = { onNavigateToTransaction() },
                             modifier    = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
                         )
                     }
