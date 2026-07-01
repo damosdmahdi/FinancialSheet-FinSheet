@@ -8,9 +8,6 @@ import com.mobileprogramming.finsheet.domain.usecase.GetCategoriesByTypeUseCase
 import com.mobileprogramming.finsheet.domain.usecase.GetTransactionByIdUseCase
 import com.mobileprogramming.finsheet.domain.usecase.UpdateTransactionUseCase
 import com.mobileprogramming.finsheet.domain.usecase.currency.GetActiveCurrencyFlowUseCase
-import android.content.Context
-import android.content.SharedPreferences
-import com.mobileprogramming.finsheet.domain.usecase.budget.CheckTransactionBudgetLimitUseCase
 
 class TransactionViewModelFactory(
     private val addTransactionUseCase: AddTransactionUseCase,
@@ -18,9 +15,6 @@ class TransactionViewModelFactory(
     private val getTransactionByIdUseCase: GetTransactionByIdUseCase,
     private val getCategoriesByTypeUseCase: GetCategoriesByTypeUseCase,
     private val addCategoryUseCase: AddCategoryUseCase,
-    private val checkTransactionBudgetLimitUseCase: CheckTransactionBudgetLimitUseCase,
-    private val sharedPreferences: SharedPreferences,
-    private val context: Context,
     private val getActiveCurrencyFlowUseCase: GetActiveCurrencyFlowUseCase
 ) : ViewModelProvider.Factory {
 
@@ -33,10 +27,7 @@ class TransactionViewModelFactory(
                     updateTransactionUseCase,
                     getTransactionByIdUseCase,
                     getCategoriesByTypeUseCase,
-                    getActiveCurrencyFlowUseCase,
-                    checkTransactionBudgetLimitUseCase,
-                    sharedPreferences,
-                    context
+                    getActiveCurrencyFlowUseCase
                 ) as T
             }
             modelClass.isAssignableFrom(AddCategoryViewModel::class.java) -> {

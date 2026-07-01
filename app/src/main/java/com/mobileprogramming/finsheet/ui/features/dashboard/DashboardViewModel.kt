@@ -1,6 +1,7 @@
 package com.mobileprogramming.finsheet.ui.features.dashboard
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.mobileprogramming.finsheet.domain.usecase.GetDashboardDataUseCase
 import com.mobileprogramming.finsheet.domain.usecase.currency.GetActiveCurrencyFlowUseCase
@@ -9,6 +10,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
@@ -34,9 +37,8 @@ class DashboardViewModel(
         viewModelScope.launch {
             combine(
                 getDashboardDataUseCase().catch { e -> e.printStackTrace() },
-                _filterIndex,
                 getActiveCurrencyFlowUseCase().catch { e -> e.printStackTrace() }
-            ) { dashboardData, filterIndex, activeCurrency ->
+            ) { dashboardData, activeCurrency ->
                 val rate = activeCurrency?.rateToIdr ?: 1.0
                 val symbol = activeCurrency?.symbol ?: "Rp"
                 
@@ -46,59 +48,51 @@ class DashboardViewModel(
                     format.format(amount).replace("$", "$symbol ")
                 }
 
-                // Dapatkan data pengeluaran berdasarkan filter yang dipilih
-                val (rawExpenses, totalExpenseVal) = when (filterIndex) {
-                    0 -> Pair(dashboardData.categoryExpensesToday, dashboardData.totalExpenseToday)
-                    1 -> Pair(dashboardData.categoryExpensesThisWeek, dashboardData.totalExpenseThisWeek)
-                    else -> Pair(dashboardData.categoryExpensesThisMonth, dashboardData.totalExpenseThisMonth)
-                }
+                _uiState.update { currentState ->
+                    // Map Category Expenses
+                    val catExpenses = dashboardData.categoryExpenses.map { cat ->
+                        val percent = if (dashboardData.expenseThisMonth > 0) {
+                            (cat.totalAmount.toFloat() / dashboardData.expenseThisMonth * 100).toInt()
+                        } else 0
+                        
+                        CategoryExpenseData(
+                            iconName = cat.icon,
+                            colorHex = cat.color,
+                            categoryName = cat.categoryName,
+                            percentage = "$percent%"
+                        )
+                    }
 
-                // Map Category Expenses
-                val catExpenses = rawExpenses.map { cat ->
-                    val percent = if (totalExpenseVal > 0) {
-                        (cat.totalAmount.toFloat() / totalExpenseVal * 100).toInt()
-                    } else 0
-                    
-                    CategoryExpenseData(
-                        iconName = cat.icon,
-                        colorHex = cat.color,
-                        categoryName = cat.categoryName,
-                        percentage = "$percent%"
+                    // Map Budget Progress
+                    val budgets = dashboardData.monthlyBudgets.map { budget ->
+                        val progress = if (budget.limitAmount > 0) {
+                            budget.usedAmount.toFloat() / budget.limitAmount
+                        } else 0f
+                        
+                        val remaining = budget.limitAmount - budget.usedAmount
+                        
+                        BudgetProgressData(
+                            iconName = budget.icon,
+                            colorHex = budget.color,
+                            budgetName = budget.budgetName,
+                            percentage = "${(progress * 100).toInt()}%",
+                            progress = progress.coerceAtMost(1f),
+                            usedAmountStr = customFormat(budget.usedAmount * rate),
+                            totalAmountStr = customFormat(budget.limitAmount * rate),
+                            remainingAmountStr = customFormat(remaining.coerceAtLeast(0) * rate)
+                        )
+                    }
+
+                    currentState.copy(
+                        totalBalance = customFormat(dashboardData.totalBalance * rate),
+                        incomeThisMonth = customFormat(dashboardData.incomeThisMonth * rate),
+                        expenseThisMonth = customFormat(dashboardData.expenseThisMonth * rate),
+                        totalExpenseForFilter = customFormat(dashboardData.expenseThisMonth * rate),
+                        categoryExpenses = catExpenses,
+                        monthlyBudgets = budgets
                     )
                 }
-
-                // Map Budget Progress
-                val budgets = dashboardData.monthlyBudgets.map { budget ->
-                    val progress = if (budget.limitAmount > 0) {
-                        budget.usedAmount.toFloat() / budget.limitAmount
-                    } else 0f
-                    
-                    val remaining = budget.limitAmount - budget.usedAmount
-                    
-                    BudgetProgressData(
-                        iconName = budget.icon,
-                        colorHex = budget.color,
-                        budgetName = budget.budgetName,
-                        percentage = "${(progress * 100).toInt()}%",
-                        progress = progress.coerceAtMost(1f),
-                        usedAmountStr = customFormat(budget.usedAmount * rate),
-                        totalAmountStr = customFormat(budget.limitAmount * rate),
-                        remainingAmountStr = customFormat(remaining.coerceAtLeast(0) * rate)
-                    )
-                }
-
-                DashboardUiState(
-                    totalBalance = customFormat(dashboardData.totalBalance * rate),
-                    incomeThisMonth = customFormat(dashboardData.incomeThisMonth * rate),
-                    expenseThisMonth = customFormat(dashboardData.expenseThisMonth * rate),
-                    selectedFilterIndex = filterIndex,
-                    totalExpenseForFilter = customFormat(totalExpenseVal * rate),
-                    categoryExpenses = catExpenses,
-                    monthlyBudgets = budgets
-                )
-            }.collect { state ->
-                _uiState.value = state
-            }
+            }.collect {}
         }
     }
 
