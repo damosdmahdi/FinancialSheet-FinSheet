@@ -14,6 +14,17 @@ import com.mobileprogramming.finsheet.ui.features.report.ReportScreen
 import com.mobileprogramming.finsheet.ui.features.settings.SettingsScreen
 import com.mobileprogramming.finsheet.ui.features.budget.AddBudgetScreen
 import com.mobileprogramming.finsheet.ui.features.auth.LoginScreen
+import androidx.navigation.NavGraph.Companion.findStartDestination
+
+private fun NavHostController.navigateBottomNav(route: Any) {
+    navigate(route) {
+        popUpTo(graph.findStartDestination().id) {
+            saveState = true
+        }
+        launchSingleTop = true
+        restoreState = true
+    }
+}
 
 @Composable
 fun FinSheetNavGraph(
@@ -40,16 +51,16 @@ fun FinSheetNavGraph(
                     navController.navigate(Screen.AddTransaction())
                 },
                 onNavigateToHistory = {
-                    navController.navigate(Screen.History)
+                    navController.navigateBottomNav(Screen.History)
                 },
                 onNavigateToReport = {
                     navController.navigate(Screen.Report)
                 },
                 onNavigateToSettings = {
-                    navController.navigate(Screen.Settings)
+                    navController.navigateBottomNav(Screen.Settings)
                 },
                 onNavigateToAnggaran = {
-                    navController.navigate(Screen.Budget)
+                    navController.navigateBottomNav(Screen.Budget)
                 }
             )
         }
@@ -61,13 +72,16 @@ fun FinSheetNavGraph(
                     navController.navigate(Screen.AddTransaction())
                 },
                 onNavigateToDashboard = {
-                    navController.navigate(Screen.Dashboard) {
-                        popUpTo<Screen.Dashboard> { inclusive = false }
-                        launchSingleTop = true
-                    }
+                    navController.navigateBottomNav(Screen.Dashboard)
                 },
-                onNavigateToTransaction = { id ->
-                    navController.navigate(Screen.AddTransaction(transactionId = id))
+                onNavigateToTransaction = {
+                    navController.navigate(Screen.AddTransaction)
+                },
+                onNavigateToAnggaran = {
+                    navController.navigateBottomNav(Screen.Budget)
+                },
+                onNavigateToSettings = {
+                    navController.navigateBottomNav(Screen.Settings)
                 }
             )
         }
@@ -134,18 +148,21 @@ fun FinSheetNavGraph(
             SettingsScreen(
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToBeranda = {
-                    navController.navigate(Screen.Dashboard) {
-                        popUpTo<Screen.Dashboard> { inclusive = true }
-                    }
+                    navController.navigateBottomNav(Screen.Dashboard)
                 },
                 onNavigateToTransaksi = {
-                    navController.navigate(Screen.History)
+                    navController.navigateBottomNav(Screen.History)
                 },
                 onNavigateToAddTransaction = {
                     navController.navigate(Screen.AddTransaction())
                 },
                 onNavigateToAnggaran = {
-                    navController.navigate(Screen.Budget)
+                    navController.navigateBottomNav(Screen.Budget)
+                },
+                onNavigateToLogin = {
+                    navController.navigate(Screen.Login) {
+                        popUpTo(0) { inclusive = true }
+                    }
                 }
             )
         }
@@ -153,18 +170,16 @@ fun FinSheetNavGraph(
         composable<Screen.Budget> {
             com.mobileprogramming.finsheet.ui.features.budget.BudgetScreen(
                 onNavigateToBeranda = {
-                    navController.navigate(Screen.Dashboard) {
-                        popUpTo<Screen.Dashboard> { inclusive = true }
-                    }
+                    navController.navigateBottomNav(Screen.Dashboard)
                 },
                 onNavigateToTransaksi = {
-                    navController.navigate(Screen.History)
+                    navController.navigateBottomNav(Screen.History)
                 },
                 onNavigateToAddTransaction = {
                     navController.navigate(Screen.AddTransaction())
                 },
                 onNavigateToSettings = {
-                    navController.navigate(Screen.Settings)
+                    navController.navigateBottomNav(Screen.Settings)
                 },
                 onNavigateToAddBudget = {
                     navController.navigate(Screen.AddBudget)

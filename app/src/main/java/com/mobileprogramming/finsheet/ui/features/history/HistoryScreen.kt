@@ -57,7 +57,9 @@ fun HistoryScreen(
     onNavigateBack: () -> Unit = {},
     onNavigateToAddTransaction: () -> Unit = {},
     onNavigateToDashboard: () -> Unit = {},
-    onNavigateToTransaction: (String?) -> Unit = {}   // [REVISI 3] navigasi ke halaman transaksi
+    onNavigateToTransaction: () -> Unit = {},   // [REVISI 3] navigasi ke halaman transaksi
+    onNavigateToAnggaran: () -> Unit = {},
+    onNavigateToSettings: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -182,6 +184,8 @@ fun HistoryScreen(
                 onFabClick       = onNavigateToAddTransaction,
                 onBerandaClick   = onNavigateToDashboard,
                 onTransaksiClick = { /* sudah berada di layar ini */ },
+                onAnggaranClick  = onNavigateToAnggaran,
+                onSettingsClick  = onNavigateToSettings,
                 selectedItem     = "Transaksi"
             )
         }
