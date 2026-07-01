@@ -58,7 +58,7 @@ fun HistoryScreen(
     onNavigateBack: () -> Unit = {},
     onNavigateToAddTransaction: () -> Unit = {},
     onNavigateToDashboard: () -> Unit = {},
-    onNavigateToTransaction: () -> Unit = {},   // [REVISI 3] navigasi ke halaman transaksi
+    onNavigateToTransaction: (String) -> Unit = {},   // [REVISI 3] navigasi ke halaman transaksi
     onNavigateToAnggaran: () -> Unit = {},
     onNavigateToSettings: () -> Unit = {}
 ) {
@@ -312,7 +312,7 @@ fun HistoryScreen(
                             item        = tx,
                             incomeGreen = incomeGreen,
                             expenseRed  = expenseRed,
-                            onClick     = { onNavigateToTransaction() },
+                            onClick     = { onNavigateToTransaction(tx.id) },
                             modifier    = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
                         )
                     }

@@ -63,14 +63,16 @@ fun SelectCategoryScreen(
 
     // Filter categories by search query
     val allCategories = remember(state.categories) {
-        state.categories.map {
-            SelectableCategoryItem(
-                entity = it,
-                label = it.categoryName,
-                icon = CategoryIconMapper.getIconByName(it.icon),
-                tint = CategoryIconMapper.getColorByHex(it.color)
-            )
-        }
+        state.categories
+            .filter { it.categoryName != "Lainnya" }
+            .map {
+                SelectableCategoryItem(
+                    entity = it,
+                    label = it.categoryName,
+                    icon = CategoryIconMapper.getIconByName(it.icon),
+                    tint = CategoryIconMapper.getColorByHex(it.color)
+                )
+            }
     }
     
     val filteredCategories = remember(searchQuery, allCategories) {

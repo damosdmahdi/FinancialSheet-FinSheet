@@ -13,6 +13,14 @@ import com.mobileprogramming.finsheet.domain.usecase.transaction.GetAllTransacti
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 
+import com.mobileprogramming.finsheet.domain.usecase.budget.GetBudgetScreenDataUseCase
+import com.mobileprogramming.finsheet.domain.usecase.budget.SaveCategoryBudgetsUseCase
+import com.mobileprogramming.finsheet.domain.usecase.budget.DeleteBudgetUseCase
+import com.mobileprogramming.finsheet.ui.features.budget.BudgetViewModelFactory
+import com.mobileprogramming.finsheet.ui.features.budget.AddBudgetViewModelFactory
+import com.mobileprogramming.finsheet.ui.features.settings.SettingsViewModelFactory
+import android.content.SharedPreferences
+
 object Injection {
     private val applicationScope = CoroutineScope(SupervisorJob())
 
@@ -35,6 +43,29 @@ object Injection {
         return BudgetRepositoryImpl(db.budgetDao())
     }
 
+    fun provideSharedPreferences(context: Context): SharedPreferences {
+        return context.getSharedPreferences("finsheet_prefs", Context.MODE_PRIVATE)
+    }
+
+    fun provideGetBudgetScreenDataUseCase(context: Context): GetBudgetScreenDataUseCase {
+        return GetBudgetScreenDataUseCase(
+            provideCategoryRepository(context),
+            provideBudgetRepository(context)
+        )
+    }
+
+    fun provideSaveCategoryBudgetsUseCase(context: Context): SaveCategoryBudgetsUseCase {
+        return SaveCategoryBudgetsUseCase(
+            provideBudgetRepository(context)
+        )
+    }
+
+    fun provideDeleteBudgetUseCase(context: Context): DeleteBudgetUseCase {
+        return DeleteBudgetUseCase(
+            provideBudgetRepository(context)
+        )
+    }
+
     fun provideGetDashboardDataUseCase(context: Context): GetDashboardDataUseCase {
         return GetDashboardDataUseCase(
             provideTransactionRepository(context),
@@ -47,6 +78,35 @@ object Injection {
         return GetAllTransactionsUseCase(
             provideTransactionRepository(context),
             provideCategoryRepository(context)
+        )
+    }
+
+    fun provideBudgetViewModelFactory(context: Context): BudgetViewModelFactory {
+        return BudgetViewModelFactory(
+            provideGetBudgetScreenDataUseCase(context),
+            provideSaveCategoryBudgetsUseCase(context),
+            provideDeleteBudgetUseCase(context),
+            provideSharedPreferences(context)
+        )
+    }
+
+    fun provideAddBudgetViewModelFactory(context: Context): AddBudgetViewModelFactory {
+        return AddBudgetViewModelFactory(
+            provideCategoryRepository(context),
+            provideSaveCategoryBudgetsUseCase(context)
+        )
+    }
+
+    fun provideSettingsViewModelFactory(context: Context): SettingsViewModelFactory {
+        return SettingsViewModelFactory(
+            provideSharedPreferences(context)
+        )
+    }
+
+    fun provideCheckTransactionBudgetLimitUseCase(context: Context): com.mobileprogramming.finsheet.domain.usecase.budget.CheckTransactionBudgetLimitUseCase {
+        return com.mobileprogramming.finsheet.domain.usecase.budget.CheckTransactionBudgetLimitUseCase(
+            provideBudgetRepository(context),
+            provideTransactionRepository(context)
         )
     }
 
@@ -73,7 +133,10 @@ object Injection {
             updateTransactionUseCase = com.mobileprogramming.finsheet.domain.usecase.UpdateTransactionUseCase(transactionRepo),
             getTransactionByIdUseCase = com.mobileprogramming.finsheet.domain.usecase.GetTransactionByIdUseCase(transactionRepo),
             getCategoriesByTypeUseCase = com.mobileprogramming.finsheet.domain.usecase.GetCategoriesByTypeUseCase(categoryRepo),
-            addCategoryUseCase = com.mobileprogramming.finsheet.domain.usecase.AddCategoryUseCase(categoryRepo)
+            addCategoryUseCase = com.mobileprogramming.finsheet.domain.usecase.AddCategoryUseCase(categoryRepo),
+            checkTransactionBudgetLimitUseCase = provideCheckTransactionBudgetLimitUseCase(context),
+            sharedPreferences = provideSharedPreferences(context),
+            context = context.applicationContext
         )
     }
 }

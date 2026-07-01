@@ -31,12 +31,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mobileprogramming.finsheet.ui.components.BottomNavigationBar
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import android.content.SharedPreferences
+import com.mobileprogramming.finsheet.domain.usecase.budget.GetBudgetScreenDataUseCase
+import com.mobileprogramming.finsheet.domain.usecase.budget.SaveCategoryBudgetsUseCase
+import com.mobileprogramming.finsheet.domain.usecase.budget.DeleteBudgetUseCase
+import com.mobileprogramming.finsheet.ui.features.addtransaction.CategoryIconMapper
 
 // --- State and ViewModels ---
 
@@ -45,24 +52,60 @@ data class BudgetCategoryState(
     val name: String,
     val icon: ImageVector,
     val allocatedAmount: String,
-    val dailyAmount: String
+    val dailyAmount: String,
+    val colorHex: String? = null
 )
 
 data class BudgetUiState(
     val totalBudget: String = "3500000",
-    val unallocatedBudget: String = "500000",
+    val unallocatedBudget: String = "0",
     val isEditing: Boolean = false,
-    val categories: List<BudgetCategoryState> = listOf(
-        BudgetCategoryState("1", "Makanan", Icons.Filled.Restaurant, "1500000", "50000"),
-        BudgetCategoryState("2", "Transportasi", Icons.Filled.DirectionsBus, "150000", "5000"),
-        BudgetCategoryState("3", "Buku & Kuliah", Icons.AutoMirrored.Filled.MenuBook, "500000", "16000"),
-        BudgetCategoryState("4", "Hiburan", Icons.Filled.LocalPlay, "0", "0")
-    )
+    val categories: List<BudgetCategoryState> = emptyList()
 )
 
-class BudgetViewModel : ViewModel() {
+class BudgetViewModel(
+    private val getBudgetScreenDataUseCase: GetBudgetScreenDataUseCase,
+    private val saveCategoryBudgetsUseCase: SaveCategoryBudgetsUseCase,
+    private val deleteBudgetUseCase: DeleteBudgetUseCase,
+    private val sharedPreferences: SharedPreferences
+) : ViewModel() {
+
     private val _uiState = MutableStateFlow(BudgetUiState())
     val uiState: StateFlow<BudgetUiState> = _uiState.asStateFlow()
+
+    init {
+        loadData()
+    }
+
+    private fun loadData() {
+        val totalMonthly = sharedPreferences.getLong("total_monthly_budget", 3500000L)
+        _uiState.update { it.copy(totalBudget = totalMonthly.toString()) }
+
+        viewModelScope.launch {
+            getBudgetScreenDataUseCase().collect { screenData ->
+                val categories = screenData.categories.map { cat ->
+                    BudgetCategoryState(
+                        id = cat.categoryId,
+                        name = cat.categoryName,
+                        icon = CategoryIconMapper.getIconByName(cat.iconName),
+                        allocatedAmount = cat.allocatedAmount.toString(),
+                        dailyAmount = if (cat.allocatedAmount > 0) (cat.allocatedAmount / 30).toString() else "0",
+                        colorHex = cat.colorHex
+                    )
+                }
+                
+                val sumAllocated = screenData.categories.sumOf { it.allocatedAmount }
+                val unallocated = totalMonthly - sumAllocated
+
+                _uiState.update { state ->
+                    state.copy(
+                        categories = categories,
+                        unallocatedBudget = unallocated.toString()
+                    )
+                }
+            }
+        }
+    }
 
     fun toggleEditMode() {
         _uiState.update { it.copy(isEditing = !it.isEditing) }
@@ -72,6 +115,12 @@ class BudgetViewModel : ViewModel() {
         val filtered = newAmount.filter { it.isDigit() }
         if (filtered.length <= 15) {
             _uiState.update { it.copy(totalBudget = filtered) }
+            val amount = filtered.toLongOrNull() ?: 0L
+            sharedPreferences.edit().putLong("total_monthly_budget", amount).apply()
+            
+            val sumAllocated = _uiState.value.categories.sumOf { it.allocatedAmount.toLongOrNull() ?: 0L }
+            val unallocated = amount - sumAllocated
+            _uiState.update { it.copy(unallocatedBudget = unallocated.toString()) }
         }
     }
 
@@ -81,24 +130,49 @@ class BudgetViewModel : ViewModel() {
             _uiState.update { state ->
                 val updatedCategories = state.categories.map { category ->
                     if (category.id == id) {
-                        category.copy(allocatedAmount = filtered)
+                        val amount = filtered.toLongOrNull() ?: 0L
+                        category.copy(
+                            allocatedAmount = filtered,
+                            dailyAmount = if (amount > 0) (amount / 30).toString() else "0"
+                        )
                     } else {
                         category
                     }
                 }
-                state.copy(categories = updatedCategories)
+                val total = state.totalBudget.toLongOrNull() ?: 0L
+                val sumAllocated = updatedCategories.sumOf { it.allocatedAmount.toLongOrNull() ?: 0L }
+                val unallocated = total - sumAllocated
+                
+                state.copy(
+                    categories = updatedCategories,
+                    unallocatedBudget = unallocated.toString()
+                )
             }
         }
     }
 
     fun deleteCategory(id: String) {
-        _uiState.update { state ->
-            state.copy(categories = state.categories.filter { it.id != id })
+        viewModelScope.launch {
+            deleteBudgetUseCase.deleteByCategoryId(id)
         }
     }
 
     fun saveChanges() {
-        _uiState.update { it.copy(isEditing = false) }
+        viewModelScope.launch {
+            _uiState.value.categories.forEach { category ->
+                val amount = category.allocatedAmount.toLongOrNull() ?: 0L
+                if (amount > 0) {
+                    saveCategoryBudgetsUseCase(
+                        categoryId = category.id,
+                        budgetName = "Batas Anggaran ${category.name}",
+                        amountLimit = amount
+                    )
+                } else {
+                    deleteBudgetUseCase.deleteByCategoryId(category.id)
+                }
+            }
+            _uiState.update { it.copy(isEditing = false) }
+        }
     }
 }
 
@@ -117,7 +191,11 @@ fun formatRupiah(amount: String): String {
 
 @Composable
 fun BudgetScreen(
-    viewModel: BudgetViewModel = viewModel(),
+    viewModel: BudgetViewModel = viewModel(
+        factory = com.mobileprogramming.finsheet.di.Injection.provideBudgetViewModelFactory(
+            LocalContext.current.applicationContext
+        )
+    ),
     onNavigateToBeranda: () -> Unit,
     onNavigateToTransaksi: () -> Unit,
     onNavigateToAddTransaction: () -> Unit,
@@ -231,8 +309,18 @@ fun BudgetScreen(
 
                             Spacer(modifier = Modifier.height(16.dp))
 
+                            val unallocatedVal = uiState.unallocatedBudget.toLongOrNull() ?: 0L
+                            val isExceeded = unallocatedVal < 0L
+                            val containerColor = if (isExceeded) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surface
+                            val contentColor = if (isExceeded) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                            val infoText = if (isExceeded) {
+                                "Melebihi total anggaran sebesar Rp ${formatRupiah((-unallocatedVal).toString())}"
+                            } else {
+                                "Tersisa Rp ${formatRupiah(unallocatedVal.toString())} belum dialokasikan"
+                            }
+                            
                             Surface(
-                                color = MaterialTheme.colorScheme.surface,
+                                color = containerColor,
                                 shape = RoundedCornerShape(24.dp),
                                 modifier = Modifier.fillMaxWidth()
                             ) {
@@ -243,14 +331,14 @@ fun BudgetScreen(
                                     Icon(
                                         imageVector = Icons.Filled.Info,
                                         contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        tint = contentColor,
                                         modifier = Modifier.size(16.dp)
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(
-                                        text = "Tersisa Rp ${formatRupiah(uiState.unallocatedBudget)} belum dialokasikan",
+                                        text = infoText,
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        color = contentColor
                                     )
                                 }
                             }
@@ -321,13 +409,17 @@ fun BudgetScreen(
             }
             
             item {
-                // Save Button (only visible when editing)
                 AnimatedVisibility(visible = uiState.isEditing) {
+                    val unallocatedVal = uiState.unallocatedBudget.toLongOrNull() ?: 0L
+                    val isExceeded = unallocatedVal < 0L
                     Button(
                         onClick = {
-                            viewModel.saveChanges()
-                            Toast.makeText(context, "Perubahan berhasil disimpan", Toast.LENGTH_SHORT).show()
+                            if (!isExceeded) {
+                                viewModel.saveChanges()
+                                Toast.makeText(context, "Perubahan berhasil disimpan", Toast.LENGTH_SHORT).show()
+                            }
                         },
+                        enabled = !isExceeded,
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 16.dp)

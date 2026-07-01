@@ -13,6 +13,11 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import com.mobileprogramming.finsheet.data.local.entity.TransactionEntity
+import android.content.Context
+import android.content.SharedPreferences
+import com.mobileprogramming.finsheet.domain.usecase.budget.CheckTransactionBudgetLimitUseCase
+import com.mobileprogramming.finsheet.domain.usecase.budget.BudgetExceedType
+import com.mobileprogramming.finsheet.core.utils.NotificationHelper
 
 data class AddEditTransactionState(
     val transactionId: String? = null,
@@ -32,7 +37,10 @@ class AddEditTransactionViewModel(
     private val addTransactionUseCase: AddTransactionUseCase,
     private val updateTransactionUseCase: UpdateTransactionUseCase,
     private val getTransactionByIdUseCase: GetTransactionByIdUseCase,
-    private val getCategoriesByTypeUseCase: GetCategoriesByTypeUseCase
+    private val getCategoriesByTypeUseCase: GetCategoriesByTypeUseCase,
+    private val checkTransactionBudgetLimitUseCase: CheckTransactionBudgetLimitUseCase,
+    private val sharedPreferences: SharedPreferences,
+    private val context: Context
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(AddEditTransactionState())
@@ -141,6 +149,48 @@ class AddEditTransactionViewModel(
                         transactionDate = _state.value.date
                     )
                 }
+                
+                // Logic Peringatan Anggaran Terlewati
+                if (_state.value.transactionType == "EXPENSE") {
+                    val limitResults = checkTransactionBudgetLimitUseCase(
+                        categoryId = categoryId,
+                        amount = amountInt.toLong(),
+                        date = _state.value.date,
+                        globalMonthlyLimit = sharedPreferences.getLong("total_monthly_budget", 3500000L)
+                    )
+                    
+                    limitResults.forEach { result ->
+                        val isEnabled = when (result.type) {
+                            BudgetExceedType.DAILY -> sharedPreferences.getBoolean("anggaran_harian_terlewati", true)
+                            BudgetExceedType.WEEKLY -> sharedPreferences.getBoolean("anggaran_mingguan_terlewati", true)
+                            BudgetExceedType.MONTHLY -> sharedPreferences.getBoolean("anggaran_bulanan_terlewati", true)
+                            BudgetExceedType.GLOBAL_MONTHLY -> sharedPreferences.getBoolean("anggaran_bulanan_terlewati", true)
+                        }
+                        
+                        if (isEnabled) {
+                            val title = when (result.type) {
+                                BudgetExceedType.DAILY -> "Batas Anggaran Harian Terlewati!"
+                                BudgetExceedType.WEEKLY -> "Batas Anggaran Mingguan Terlewati!"
+                                BudgetExceedType.MONTHLY -> "Batas Anggaran Bulanan Terlewati!"
+                                BudgetExceedType.GLOBAL_MONTHLY -> "Total Anggaran Bulanan Terlewati!"
+                            }
+                            
+                            val catName = result.categoryName ?: "Seluruh Kategori (Global)"
+                            val formatter = java.text.DecimalFormat("#,###", java.text.DecimalFormatSymbols(java.util.Locale.Builder().setLanguage("id").setRegion("ID").build()))
+                            val spentFormatted = formatter.format(result.spentAmount).replace(',', '.')
+                            val limitFormatted = formatter.format(result.budgetLimit).replace(',', '.')
+                            val message = "Pengeluaran untuk $catName mencapai Rp $spentFormatted (Batas: Rp $limitFormatted)."
+                            
+                            NotificationHelper.showBudgetNotification(
+                                context = context,
+                                title = title,
+                                message = message,
+                                notificationId = result.type.ordinal
+                            )
+                        }
+                    }
+                }
+                
                 _state.update { it.copy(isSaving = false, saveSuccess = true) }
             } catch (e: Exception) {
                 _state.update { it.copy(isSaving = false, error = e.message ?: "Failed to save") }

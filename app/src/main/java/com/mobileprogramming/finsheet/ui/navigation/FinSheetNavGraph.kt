@@ -74,8 +74,8 @@ fun FinSheetNavGraph(
                 onNavigateToDashboard = {
                     navController.navigateBottomNav(Screen.Dashboard)
                 },
-                onNavigateToTransaction = {
-                    navController.navigate(Screen.AddTransaction)
+                onNavigateToTransaction = { transactionId ->
+                    navController.navigate(Screen.AddTransaction(transactionId = transactionId))
                 },
                 onNavigateToAnggaran = {
                     navController.navigateBottomNav(Screen.Budget)
@@ -189,7 +189,10 @@ fun FinSheetNavGraph(
 
         composable<Screen.AddBudget> {
             AddBudgetScreen(
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToAddCategory = {
+                    navController.navigate(Screen.AddCategory)
+                }
             )
         }
     }

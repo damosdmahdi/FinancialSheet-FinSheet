@@ -35,26 +35,19 @@ import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
 import java.util.Locale
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.mobileprogramming.finsheet.ui.features.addtransaction.CategoryIconMapper
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.ui.platform.LocalContext
+
 data class CategoryItem(
+    val id: String,
     val name: String,
     val icon: ImageVector,
     val iconColorLight: Color,
     val bgColorLight: Color,
     val iconColorDark: Color,
     val bgColorDark: Color
-)
-
-val categories = listOf(
-    CategoryItem("Makanan", Icons.Filled.Restaurant, catBlueIconLight, catBlueBgLight, catBlueIconDark, catBlueBgDark),
-    CategoryItem("Transport", Icons.Filled.DirectionsTransit, catOrangeIconLight, catOrangeBgLight, catOrangeIconDark, catOrangeBgDark),
-    CategoryItem("Edukasi", Icons.Filled.School, catPurpleIconLight, catPurpleBgLight, catPurpleIconDark, catPurpleBgDark),
-    CategoryItem("Belanja", Icons.Filled.LocalMall, catRedIconLight, catRedBgLight, catRedIconDark, catRedBgDark),
-    CategoryItem("Hiburan", Icons.Filled.Movie, catBlueIconLight, catBlueBgLight, catBlueIconDark, catBlueBgDark),
-    CategoryItem("Simpanan", Icons.Filled.AccountBalanceWallet, catGreenIconLight, catGreenBgLight, catGreenIconDark, catGreenBgDark),
-    CategoryItem("Kesehatan", Icons.Filled.MedicalServices, catRedIconLight, catRedBgLight, catRedIconDark, catRedBgDark),
-    CategoryItem("Kuota", Icons.Filled.Wifi, catBlueIconLight, catBlueBgLight, catBlueIconDark, catBlueBgDark),
-    CategoryItem("Kos", Icons.Filled.Home, catOrangeIconLight, catOrangeBgLight, catOrangeIconDark, catOrangeBgDark),
-    CategoryItem("Lainnya", Icons.Filled.MoreHoriz, catPurpleIconLight, catPurpleBgLight, catPurpleIconDark, catPurpleBgDark)
 )
 
 class RupiahVisualTransformation : VisualTransformation {
@@ -104,14 +97,57 @@ class RupiahVisualTransformation : VisualTransformation {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddBudgetScreen(
-    onNavigateBack: () -> Unit
+    viewModel: AddBudgetViewModel = viewModel(
+        factory = com.mobileprogramming.finsheet.di.Injection.provideAddBudgetViewModelFactory(
+            LocalContext.current.applicationContext
+        )
+    ),
+    onNavigateBack: () -> Unit,
+    onNavigateToAddCategory: () -> Unit
 ) {
-    var selectedCategory by remember { mutableStateOf<String?>(null) }
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    var selectedCategory by remember { mutableStateOf<CategoryItem?>(null) }
     var amountState by remember { mutableStateOf(TextFieldValue("")) }
     var showAllCategories by remember { mutableStateOf(false) }
 
+    val dbCategories = remember(uiState.categories) {
+        uiState.categories
+            .filter { it.categoryName != "Lainnya" }
+            .map { entity ->
+                val icon = CategoryIconMapper.getIconByName(entity.icon)
+                val solidColor = CategoryIconMapper.getColorByHex(entity.color)
+                val bgColor = CategoryIconMapper.getBackgroundColorByHex(entity.color)
+                CategoryItem(
+                    id = entity.id,
+                    name = entity.categoryName,
+                    icon = icon,
+                    iconColorLight = solidColor,
+                    bgColorLight = bgColor,
+                    iconColorDark = solidColor,
+                    bgColorDark = bgColor
+                )
+            }
+    }
+
+    val budgetGridCategories = remember(dbCategories) {
+        val list = dbCategories.take(7).toMutableList()
+        list.add(
+            CategoryItem(
+                id = "virtual-add-category",
+                name = "Tambah",
+                icon = Icons.Filled.Add,
+                iconColorLight = Color(0xFF7B7FA6),
+                bgColorLight = Color(0xFFF0F0F8),
+                iconColorDark = Color(0xFF7B7FA6),
+                bgColorDark = Color(0xFFF0F0F8)
+            )
+        )
+        list
+    }
+
     if (showAllCategories) {
         CategorySelectionScreen(
+            categories = dbCategories,
             selectedCategory = selectedCategory,
             onCategorySelected = { selectedCategory = it },
             onConfirm = { showAllCategories = false },
@@ -157,8 +193,16 @@ fun AddBudgetScreen(
             ) {
                 Button(
                     onClick = {
-                        // TODO: Simpan data anggaran
-                        onNavigateBack()
+                        val category = selectedCategory
+                        val amount = amountState.text.toLongOrNull()
+                        if (category != null && amount != null) {
+                            viewModel.saveBudget(
+                                categoryId = category.id,
+                                budgetName = "Batas Anggaran ${category.name}",
+                                amountLimit = amount,
+                                onComplete = onNavigateBack
+                            )
+                        }
                     },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -216,24 +260,41 @@ fun AddBudgetScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                val chunkedCategories = categories.take(8).chunked(4)
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    chunkedCategories.forEach { rowItems ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            rowItems.forEach { category ->
-                                CategoryCard(
-                                    category = category,
-                                    isSelected = selectedCategory == category.name,
-                                    onClick = { selectedCategory = category.name },
-                                    modifier = Modifier.weight(1f)
-                                )
-                            }
-                            if (rowItems.size < 4) {
-                                repeat(4 - rowItems.size) {
-                                    Spacer(modifier = Modifier.weight(1f))
+                if (dbCategories.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(100.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                } else {
+                    val chunkedCategories = budgetGridCategories.chunked(4)
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        chunkedCategories.forEach { rowItems ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                rowItems.forEach { category ->
+                                    CategoryCard(
+                                        category = category,
+                                        isSelected = selectedCategory?.id == category.id,
+                                        onClick = {
+                                            if (category.id == "virtual-add-category") {
+                                                onNavigateToAddCategory()
+                                            } else {
+                                                selectedCategory = category
+                                            }
+                                        },
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+                                if (rowItems.size < 4) {
+                                    repeat(4 - rowItems.size) {
+                                        Spacer(modifier = Modifier.weight(1f))
+                                    }
                                 }
                             }
                         }
@@ -375,8 +436,9 @@ fun CategoryCard(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CategorySelectionScreen(
-    selectedCategory: String?,
-    onCategorySelected: (String) -> Unit,
+    categories: List<CategoryItem>,
+    selectedCategory: CategoryItem?,
+    onCategorySelected: (CategoryItem) -> Unit,
     onConfirm: () -> Unit,
     onBack: () -> Unit
 ) {
@@ -500,8 +562,8 @@ fun CategorySelectionScreen(
                         rowItems.forEach { category ->
                             CategoryCard(
                                 category = category,
-                                isSelected = selectedCategory == category.name,
-                                onClick = { onCategorySelected(category.name) },
+                                isSelected = selectedCategory?.id == category.id,
+                                onClick = { onCategorySelected(category) },
                                 modifier = Modifier.weight(1f)
                             )
                         }

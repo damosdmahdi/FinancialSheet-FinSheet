@@ -22,32 +22,58 @@ class GetDashboardDataUseCase(
             budgetRepository.getAllActiveBudgets()
         ) { transactions, categories, budgets ->
             
-            // 1. Kalkulasi Saldo
+            // 1. Kalkulasi Saldo dan Pengeluaran
             var totalIncome = 0L
             var totalExpense = 0L
             var incomeThisMonth = 0L
-            var expenseThisMonth = 0L
             
             val calendar = Calendar.getInstance()
+            val currentDayOfYear = calendar.get(Calendar.DAY_OF_YEAR)
+            val currentWeekOfYear = calendar.get(Calendar.WEEK_OF_YEAR)
             val currentMonth = calendar.get(Calendar.MONTH)
             val currentYear = calendar.get(Calendar.YEAR)
 
-            val expensesByCategory = mutableMapOf<String, Long>()
+            val expensesByCategoryToday = mutableMapOf<String, Long>()
+            val expensesByCategoryThisWeek = mutableMapOf<String, Long>()
+            val expensesByCategoryThisMonth = mutableMapOf<String, Long>()
+            
+            var totalExpenseToday = 0L
+            var totalExpenseThisWeek = 0L
+            var totalExpenseThisMonth = 0L
 
             for (tx in transactions) {
-                val txCalendar = Calendar.getInstance().apply { timeInMillis = tx.transactionDate }
-                val isThisMonth = txCalendar.get(Calendar.MONTH) == currentMonth && 
-                                  txCalendar.get(Calendar.YEAR) == currentYear
-
                 if (tx.transactionType == "INCOME") {
                     totalIncome += tx.amount
+                    val txCalendar = Calendar.getInstance().apply { timeInMillis = tx.transactionDate }
+                    val isThisMonth = txCalendar.get(Calendar.MONTH) == currentMonth && 
+                                      txCalendar.get(Calendar.YEAR) == currentYear
                     if (isThisMonth) incomeThisMonth += tx.amount
                 } else if (tx.transactionType == "EXPENSE") {
                     totalExpense += tx.amount
-                    if (isThisMonth) {
-                        expenseThisMonth += tx.amount
+                    
+                    val txCalendar = Calendar.getInstance().apply { timeInMillis = tx.transactionDate }
+                    val txYear = txCalendar.get(Calendar.YEAR)
+                    
+                    val isToday = txYear == currentYear && txCalendar.get(Calendar.DAY_OF_YEAR) == currentDayOfYear
+                    val isThisWeek = txYear == currentYear && txCalendar.get(Calendar.WEEK_OF_YEAR) == currentWeekOfYear
+                    val isThisMonth = txYear == currentYear && txCalendar.get(Calendar.MONTH) == currentMonth
+                    
+                    if (isToday) {
+                        totalExpenseToday += tx.amount
                         tx.categoryId?.let { id ->
-                            expensesByCategory[id] = (expensesByCategory[id] ?: 0L) + tx.amount
+                            expensesByCategoryToday[id] = (expensesByCategoryToday[id] ?: 0L) + tx.amount
+                        }
+                    }
+                    if (isThisWeek) {
+                        totalExpenseThisWeek += tx.amount
+                        tx.categoryId?.let { id ->
+                            expensesByCategoryThisWeek[id] = (expensesByCategoryThisWeek[id] ?: 0L) + tx.amount
+                        }
+                    }
+                    if (isThisMonth) {
+                        totalExpenseThisMonth += tx.amount
+                        tx.categoryId?.let { id ->
+                            expensesByCategoryThisMonth[id] = (expensesByCategoryThisMonth[id] ?: 0L) + tx.amount
                         }
                     }
                 }
@@ -55,8 +81,34 @@ class GetDashboardDataUseCase(
 
             val totalBalance = totalIncome - totalExpense
 
-            // 2. Map Pengeluaran Kategori (Bulan Ini)
-            val categoryExpenseModels = expensesByCategory.mapNotNull { (catId, amount) ->
+            // 2. Map Pengeluaran Kategori (Hari Ini, Minggu Ini, Bulan Ini)
+            val categoryExpensesToday = expensesByCategoryToday.mapNotNull { (catId, amount) ->
+                val category = categories.find { it.id == catId }
+                if (category != null) {
+                    CategoryExpenseModel(
+                        categoryId = catId,
+                        categoryName = category.categoryName,
+                        icon = category.icon,
+                        color = category.color,
+                        totalAmount = amount
+                    )
+                } else null
+            }.sortedByDescending { it.totalAmount }
+
+            val categoryExpensesThisWeek = expensesByCategoryThisWeek.mapNotNull { (catId, amount) ->
+                val category = categories.find { it.id == catId }
+                if (category != null) {
+                    CategoryExpenseModel(
+                        categoryId = catId,
+                        categoryName = category.categoryName,
+                        icon = category.icon,
+                        color = category.color,
+                        totalAmount = amount
+                    )
+                } else null
+            }.sortedByDescending { it.totalAmount }
+
+            val categoryExpensesThisMonth = expensesByCategoryThisMonth.mapNotNull { (catId, amount) ->
                 val category = categories.find { it.id == catId }
                 if (category != null) {
                     CategoryExpenseModel(
@@ -73,7 +125,7 @@ class GetDashboardDataUseCase(
             val budgetProgressModels = budgets.mapNotNull { budget ->
                 val category = categories.find { it.id == budget.categoryId }
                 if (category != null) {
-                    val usedAmount = expensesByCategory[budget.categoryId] ?: 0L
+                    val usedAmount = expensesByCategoryThisMonth[budget.categoryId] ?: 0L
                     BudgetProgressModel(
                         budgetId = budget.id,
                         budgetName = budget.budgetName,
@@ -89,8 +141,13 @@ class GetDashboardDataUseCase(
             DashboardData(
                 totalBalance = totalBalance,
                 incomeThisMonth = incomeThisMonth,
-                expenseThisMonth = expenseThisMonth,
-                categoryExpenses = categoryExpenseModels,
+                expenseThisMonth = totalExpenseThisMonth,
+                categoryExpensesToday = categoryExpensesToday,
+                categoryExpensesThisWeek = categoryExpensesThisWeek,
+                categoryExpensesThisMonth = categoryExpensesThisMonth,
+                totalExpenseToday = totalExpenseToday,
+                totalExpenseThisWeek = totalExpenseThisWeek,
+                totalExpenseThisMonth = totalExpenseThisMonth,
                 monthlyBudgets = budgetProgressModels
             )
         }
