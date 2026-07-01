@@ -13,7 +13,10 @@ import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingExcept
 import com.google.firebase.auth.AuthResult
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
+import com.mobileprogramming.finsheet.BuildConfig
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
 import java.security.MessageDigest
 import java.util.UUID
 
@@ -21,8 +24,8 @@ class GoogleAuthClient(
     private val context: Context,
     private val auth: FirebaseAuth
 ) {
-    private val credentialManager = CredentialManager.create(context)
-    private val webClientId = "330018667208-i7i5rpg1ro9mtjm43usco84tiosbvdr3.apps.googleusercontent.com"
+    private val credentialManager = CredentialManager.create(context.applicationContext)
+    private val webClientId = BuildConfig.WEB_CLIENT_ID
 
     suspend fun signIn(): AuthResult? {
         val googleIdOption = GetGoogleIdOption.Builder()
@@ -70,12 +73,12 @@ class GoogleAuthClient(
         }
     }
 
-    private fun generateNonce(): String {
+    private suspend fun generateNonce(): String = withContext(Dispatchers.Default) {
         val rawNonce = UUID.randomUUID().toString()
         val bytes = rawNonce.toByteArray()
         val md = MessageDigest.getInstance("SHA-256")
         val digest = md.digest(bytes)
-        return digest.fold("") { str, it -> str + "%02x".format(it) }
+        digest.joinToString("") { "%02x".format(it) }
     }
 
     fun signOut() {
