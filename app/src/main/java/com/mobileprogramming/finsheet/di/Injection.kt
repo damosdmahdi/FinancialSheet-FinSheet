@@ -10,6 +10,17 @@ import com.mobileprogramming.finsheet.domain.repository.CategoryRepository
 import com.mobileprogramming.finsheet.domain.repository.TransactionRepository
 import com.mobileprogramming.finsheet.domain.usecase.GetDashboardDataUseCase
 import com.mobileprogramming.finsheet.domain.usecase.transaction.GetAllTransactionsUseCase
+import com.mobileprogramming.finsheet.data.repository.CurrencyRepositoryImpl
+import com.mobileprogramming.finsheet.domain.repository.CurrencyRepository
+import com.mobileprogramming.finsheet.data.local.preferences.CurrencyPreferenceManager
+import com.mobileprogramming.finsheet.data.remote.FrankfurtApi
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
+import com.mobileprogramming.finsheet.domain.usecase.currency.GetActiveCurrencyUseCase
+import com.mobileprogramming.finsheet.domain.usecase.currency.GetAllCurrenciesUseCase
+import com.mobileprogramming.finsheet.domain.usecase.currency.GetPreferredCurrencyCodeUseCase
+import com.mobileprogramming.finsheet.domain.usecase.currency.SetPreferredCurrencyUseCase
+import com.mobileprogramming.finsheet.domain.usecase.currency.SyncCurrenciesUseCase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 
@@ -26,6 +37,23 @@ object Injection {
 
     private fun provideDatabase(context: Context): AppDatabase {
         return AppDatabase.getDatabase(context, applicationScope)
+    }
+
+    private fun provideFrankfurtApi(): FrankfurtApi {
+        return Retrofit.Builder()
+            .baseUrl("https://api.frankfurter.app/")
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+            .create(FrankfurtApi::class.java)
+    }
+
+    fun provideCurrencyRepository(context: Context): CurrencyRepository {
+        val db = provideDatabase(context)
+        return CurrencyRepositoryImpl(
+            api = provideFrankfurtApi(),
+            currencyDao = db.currencyDao(),
+            preferenceManager = CurrencyPreferenceManager(context)
+        )
     }
 
     fun provideTransactionRepository(context: Context): TransactionRepository {
@@ -73,6 +101,14 @@ object Injection {
             provideBudgetRepository(context)
         )
     }
+    
+    fun provideDashboardViewModelFactory(context: Context): com.mobileprogramming.finsheet.ui.features.dashboard.DashboardViewModelFactory {
+        val repo = provideCurrencyRepository(context)
+        return com.mobileprogramming.finsheet.ui.features.dashboard.DashboardViewModelFactory(
+            getDashboardDataUseCase = provideGetDashboardDataUseCase(context),
+            getActiveCurrencyFlowUseCase = com.mobileprogramming.finsheet.domain.usecase.currency.GetActiveCurrencyFlowUseCase(repo)
+        )
+    }
 
     fun provideGetAllTransactionsUseCase(context: Context): GetAllTransactionsUseCase {
         return GetAllTransactionsUseCase(
@@ -98,6 +134,7 @@ object Injection {
     fun provideTransactionViewModelFactory(context: Context): com.mobileprogramming.finsheet.ui.features.addtransaction.TransactionViewModelFactory {
         val transactionRepo = provideTransactionRepository(context)
         val categoryRepo = provideCategoryRepository(context)
+        val currencyRepo = provideCurrencyRepository(context)
         
         return com.mobileprogramming.finsheet.ui.features.addtransaction.TransactionViewModelFactory(
             addTransactionUseCase = com.mobileprogramming.finsheet.domain.usecase.AddTransactionUseCase(transactionRepo),
