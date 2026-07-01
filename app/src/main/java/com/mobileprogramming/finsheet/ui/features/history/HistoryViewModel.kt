@@ -6,11 +6,14 @@ import com.mobileprogramming.finsheet.domain.model.TransactionItemModel
 import com.mobileprogramming.finsheet.domain.usecase.transaction.GetAllTransactionsUseCase
 import com.mobileprogramming.finsheet.domain.usecase.currency.GetActiveCurrencyFlowUseCase
 import com.mobileprogramming.finsheet.data.local.entity.CurrencyEntity
+import com.mobileprogramming.finsheet.domain.usecase.currency.GetActiveCurrencyFlowUseCase
+import com.mobileprogramming.finsheet.data.local.entity.CurrencyEntity
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
@@ -46,7 +49,6 @@ enum class TransactionFilter { SEMUA, PENGELUARAN, PEMASUKAN }
 
 class HistoryViewModel(
     private val getAllTransactionsUseCase: GetAllTransactionsUseCase,
-    private val syncTransactionsUseCase: SyncTransactionsUseCase,
     private val getActiveCurrencyFlowUseCase: GetActiveCurrencyFlowUseCase
 ) : ViewModel() {
 
@@ -54,6 +56,7 @@ class HistoryViewModel(
     val uiState: StateFlow<HistoryUiState> = _uiState.asStateFlow()
 
     private var allTransactions: List<TransactionItemModel> = emptyList()
+    private var activeCurrency: CurrencyEntity? = null
     private var activeCurrency: CurrencyEntity? = null
 
     init {
@@ -63,6 +66,15 @@ class HistoryViewModel(
     private fun loadTransactions() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
+            
+            combine(
+                getAllTransactionsUseCase().catch { e -> _uiState.update { it.copy(isLoading = false) } },
+                getActiveCurrencyFlowUseCase().catch { e -> e.printStackTrace() }
+            ) { transactions, currency ->
+                allTransactions = transactions
+                activeCurrency = currency
+                updateFilteredTransactions()
+            }.collect {}
             
             combine(
                 getAllTransactionsUseCase().catch { e -> _uiState.update { it.copy(isLoading = false) } },
@@ -85,7 +97,14 @@ class HistoryViewModel(
         val symbol = activeCurrency?.symbol ?: "Rp"
         
         val format = NumberFormat.getCurrencyInstance(Locale("en", "US"))
+        val rate = activeCurrency?.rateToIdr ?: 1.0
+        val symbol = activeCurrency?.symbol ?: "Rp"
+        
+        val format = NumberFormat.getCurrencyInstance(Locale("en", "US"))
         format.maximumFractionDigits = 0
+        val customFormat = { amount: Double ->
+            format.format(amount).replace("$", "$symbol ")
+        }
         val customFormat = { amount: Double ->
             format.format(amount).replace("$", "$symbol ")
         }
@@ -108,6 +127,7 @@ class HistoryViewModel(
                 dateLabel = dateLabel,
                 items = txList.map { tx ->
                     val sign = if (tx.isExpense) "-" else "+"
+                    val amountStr = customFormat(tx.amount * rate)
                     val amountStr = customFormat(tx.amount * rate)
                     TransactionItemUI(
                         id = tx.id,

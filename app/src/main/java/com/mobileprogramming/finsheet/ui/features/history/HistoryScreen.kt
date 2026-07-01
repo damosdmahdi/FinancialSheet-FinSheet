@@ -43,12 +43,10 @@ private fun formatDateMillis(millis: Long): String {
 fun HistoryScreen(
     viewModel: HistoryViewModel = viewModel(
         factory = Injection.provideHistoryViewModelFactory(LocalContext.current.applicationContext)
-        factory = Injection.provideHistoryViewModelFactory(LocalContext.current.applicationContext)
     ),
     onNavigateBack: () -> Unit = {},
     onNavigateToAddTransaction: () -> Unit = {},
     onNavigateToDashboard: () -> Unit = {},
-    onNavigateToTransaction: (String) -> Unit = {},
     onNavigateToTransaction: (String) -> Unit = {},
     onNavigateToAnggaran: () -> Unit = {},
     onNavigateToSettings: () -> Unit = {}
@@ -58,7 +56,10 @@ fun HistoryScreen(
     /* ---- Local UI state ---- */
     var showDatePicker          by remember { mutableStateOf(false) }
     var isSyncing               by remember { mutableStateOf(false) }
+    var showDatePicker          by remember { mutableStateOf(false) }
+    var isSyncing               by remember { mutableStateOf(false) }
 
+    // Rentang tanggal dari DateRangePicker
     // Rentang tanggal dari DateRangePicker
     val dateRangePickerState = rememberDateRangePickerState()
     val dateRangeText = remember(
@@ -73,6 +74,7 @@ fun HistoryScreen(
             start != null ->
                 "${formatDateMillis(start)} - ..."
             else ->
+                "Pilih Rentang Waktu"
                 "Pilih Rentang Waktu"
         }
     }
@@ -186,6 +188,7 @@ fun HistoryScreen(
             contentPadding = PaddingValues(bottom = 8.dp)
         ) {
             item(key = "header_title") {
+            item(key = "header_title") {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -200,7 +203,6 @@ fun HistoryScreen(
                         ),
                         color = MaterialTheme.colorScheme.onSurface
                     )
-                    val context = LocalContext.current
                     SyncStatusChip(
                         isSyncing = isSyncing,
                         primaryBlue = primaryBlue,
@@ -214,6 +216,7 @@ fun HistoryScreen(
             }
 
             item(key = "date_range_selector") {
+            item(key = "date_range_selector") {
                 DateRangeRow(
                     label       = dateRangeText,
                     onToggle    = { showDatePicker = true },
@@ -223,6 +226,7 @@ fun HistoryScreen(
                 Spacer(modifier = Modifier.height(12.dp))
             }
 
+            item(key = "filter_tabs") {
             item(key = "filter_tabs") {
                 FilterTabRow(
                     selected    = uiState.selectedFilter,
@@ -236,17 +240,21 @@ fun HistoryScreen(
 
             if (uiState.isLoading) {
                 item(key = "loading_indicator") {
+                item(key = "loading_indicator") {
                     Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator(color = primaryBlue)
                     }
                 }
             } else if (uiState.transactions.isEmpty()) {
                 item(key = "empty_state") {
+                item(key = "empty_state") {
                     Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
                         Text("Belum ada transaksi.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             } else {
+                uiState.transactions.forEachIndexed { index, group ->
+                    item(key = "header_${group.dateLabel}_$index") {
                 uiState.transactions.forEachIndexed { index, group ->
                     item(key = "header_${group.dateLabel}_$index") {
                         Text(
@@ -265,6 +273,7 @@ fun HistoryScreen(
                     items(
                         items = group.items,
                         key   = { it.id } 
+                        key   = { it.id } 
                     ) { tx ->
                         TransactionRow(
                             item        = tx,
@@ -275,6 +284,7 @@ fun HistoryScreen(
                         )
                     }
 
+                    item(key = "spacer_${group.dateLabel}_$index") {
                     item(key = "spacer_${group.dateLabel}_$index") {
                         Spacer(modifier = Modifier.height(8.dp))
                     }
@@ -467,6 +477,7 @@ private fun TransactionRow(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(10.dp))
+            .clickable(onClick = onClick)
             .clickable(onClick = onClick)
             .padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
