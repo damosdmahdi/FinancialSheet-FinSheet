@@ -122,7 +122,8 @@ fun DashboardScreen(
 
             // Anggaran Bulan Ini
             MonthlyBudgetSection(
-                budgets = uiState.monthlyBudgets
+                budgets = uiState.monthlyBudgets,
+                onSeeAllClick = onNavigateToAnggaran
             )
         }
     }
@@ -319,7 +320,10 @@ fun ExpenseCategoryCard(
 }
 
 @Composable
-fun MonthlyBudgetSection(budgets: List<BudgetProgressData>) {
+fun MonthlyBudgetSection(
+    budgets: List<BudgetProgressData>,
+    onSeeAllClick: () -> Unit
+) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -331,7 +335,7 @@ fun MonthlyBudgetSection(budgets: List<BudgetProgressData>) {
                 style = MaterialTheme.typography.headlineMedium,
                 color = MaterialTheme.colorScheme.onSurface
             )
-            TextButton(onClick = { /*TODO*/ }) {
+            TextButton(onClick = onSeeAllClick) {
                 Text(
                     text = "Lihat Semua",
                     style = MaterialTheme.typography.labelLarge,

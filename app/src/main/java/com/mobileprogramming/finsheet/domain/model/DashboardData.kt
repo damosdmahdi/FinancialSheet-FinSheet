@@ -4,7 +4,12 @@ data class DashboardData(
     val totalBalance: Long,
     val incomeThisMonth: Long,
     val expenseThisMonth: Long,
-    val categoryExpenses: List<CategoryExpenseModel>,
+    val categoryExpensesToday: List<CategoryExpenseModel>,
+    val categoryExpensesThisWeek: List<CategoryExpenseModel>,
+    val categoryExpensesThisMonth: List<CategoryExpenseModel>,
+    val totalExpenseToday: Long,
+    val totalExpenseThisWeek: Long,
+    val totalExpenseThisMonth: Long,
     val monthlyBudgets: List<BudgetProgressModel>
 )
 

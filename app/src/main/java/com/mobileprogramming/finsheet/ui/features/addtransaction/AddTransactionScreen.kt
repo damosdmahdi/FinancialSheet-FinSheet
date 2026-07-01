@@ -61,17 +61,19 @@ private data class CategoryItem(
 )
 
 private fun mapCategoriesToUI(categories: List<com.mobileprogramming.finsheet.data.local.entity.CategoryEntity>): List<CategoryItem> {
-    val items = categories.take(6).map {
-        CategoryItem(
-            id = it.id,
-            label = it.categoryName,
-            icon = CategoryIconMapper.getIconByName(it.icon),
-            bgColor = CategoryIconMapper.getBackgroundColorByHex(it.color),
-            iconColor = CategoryIconMapper.getColorByHex(it.color)
-        )
-    }.toMutableList()
+    val items = categories
+        .filter { it.categoryName != "Lainnya" }
+        .take(7)
+        .map {
+            CategoryItem(
+                id = it.id,
+                label = it.categoryName,
+                icon = CategoryIconMapper.getIconByName(it.icon),
+                bgColor = CategoryIconMapper.getBackgroundColorByHex(it.color),
+                iconColor = CategoryIconMapper.getColorByHex(it.color)
+            )
+        }.toMutableList()
     
-    items.add(CategoryItem(null, "Lainnya", Icons.Outlined.MoreHoriz, Color(0xFFF0F0F8), Color(0xFF7B7FA6)))
     items.add(CategoryItem(null, "Tambah", Icons.Filled.Add, Color(0xFFF0F0F8), Color(0xFF7B7FA6)))
     return items
 }
@@ -279,12 +281,24 @@ fun AddTransactionScreen(
             val categoryLabel = if (state.transactionType == "EXPENSE")
                 "Kategori Pengeluaran" else "Kategori Pemasukan"
 
-            Text(
-                text = categoryLabel,
-                style = MaterialTheme.typography.labelLarge.copy(
-                    color = MaterialTheme.colorScheme.onSurface
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = categoryLabel,
+                    style = MaterialTheme.typography.labelLarge.copy(
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
                 )
-            )
+                Text(
+                    text = "Lihat Semua",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.clickable { onNavigateToSelectCategory() }
+                )
+            }
 
             CategoryGrid(
                 categories = currentCategories,
@@ -729,7 +743,6 @@ private fun CategoryGrid(
                 rowItems.forEach { item ->
                     // Routing per-label: dua callback berbeda untuk dua aksi berbeda
                     val clickAction: () -> Unit = when (item.label) {
-                        "Lainnya" -> onNavigateToSelectCategory   // pilih dari kategori yang sudah ada
                         "Tambah"  -> onNavigateToAddCategory       // buat kategori baru
                         else      -> { { onCategorySelected(item.label) } }
                     }

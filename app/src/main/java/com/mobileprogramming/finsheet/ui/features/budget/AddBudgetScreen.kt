@@ -102,7 +102,8 @@ fun AddBudgetScreen(
             LocalContext.current.applicationContext
         )
     ),
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    onNavigateToAddCategory: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var selectedCategory by remember { mutableStateOf<CategoryItem?>(null) }
@@ -110,20 +111,38 @@ fun AddBudgetScreen(
     var showAllCategories by remember { mutableStateOf(false) }
 
     val dbCategories = remember(uiState.categories) {
-        uiState.categories.map { entity ->
-            val icon = CategoryIconMapper.getIconByName(entity.icon)
-            val solidColor = CategoryIconMapper.getColorByHex(entity.color)
-            val bgColor = CategoryIconMapper.getBackgroundColorByHex(entity.color)
+        uiState.categories
+            .filter { it.categoryName != "Lainnya" }
+            .map { entity ->
+                val icon = CategoryIconMapper.getIconByName(entity.icon)
+                val solidColor = CategoryIconMapper.getColorByHex(entity.color)
+                val bgColor = CategoryIconMapper.getBackgroundColorByHex(entity.color)
+                CategoryItem(
+                    id = entity.id,
+                    name = entity.categoryName,
+                    icon = icon,
+                    iconColorLight = solidColor,
+                    bgColorLight = bgColor,
+                    iconColorDark = solidColor,
+                    bgColorDark = bgColor
+                )
+            }
+    }
+
+    val budgetGridCategories = remember(dbCategories) {
+        val list = dbCategories.take(7).toMutableList()
+        list.add(
             CategoryItem(
-                id = entity.id,
-                name = entity.categoryName,
-                icon = icon,
-                iconColorLight = solidColor,
-                bgColorLight = bgColor,
-                iconColorDark = solidColor,
-                bgColorDark = bgColor
+                id = "virtual-add-category",
+                name = "Tambah",
+                icon = Icons.Filled.Add,
+                iconColorLight = Color(0xFF7B7FA6),
+                bgColorLight = Color(0xFFF0F0F8),
+                iconColorDark = Color(0xFF7B7FA6),
+                bgColorDark = Color(0xFFF0F0F8)
             )
-        }
+        )
+        list
     }
 
     if (showAllCategories) {
@@ -251,7 +270,7 @@ fun AddBudgetScreen(
                         CircularProgressIndicator()
                     }
                 } else {
-                    val chunkedCategories = dbCategories.take(8).chunked(4)
+                    val chunkedCategories = budgetGridCategories.chunked(4)
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         chunkedCategories.forEach { rowItems ->
                             Row(
@@ -262,7 +281,13 @@ fun AddBudgetScreen(
                                     CategoryCard(
                                         category = category,
                                         isSelected = selectedCategory?.id == category.id,
-                                        onClick = { selectedCategory = category },
+                                        onClick = {
+                                            if (category.id == "virtual-add-category") {
+                                                onNavigateToAddCategory()
+                                            } else {
+                                                selectedCategory = category
+                                            }
+                                        },
                                         modifier = Modifier.weight(1f)
                                     )
                                 }

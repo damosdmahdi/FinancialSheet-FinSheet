@@ -30,16 +30,18 @@ class GetBudgetScreenDataUseCase(
             budgetRepository.getAllActiveBudgets()
         ) { categories, budgets ->
             val expenseCategories = categories.filter { it.type == "EXPENSE" }
-            val itemModels = expenseCategories.map { category ->
+            val itemModels = expenseCategories.mapNotNull { category ->
                 val budget = budgets.find { it.categoryId == category.id }
-                BudgetCategoryItemModel(
-                    categoryId = category.id,
-                    categoryName = category.categoryName,
-                    iconName = category.icon,
-                    colorHex = category.color,
-                    budgetId = budget?.id,
-                    allocatedAmount = budget?.amountLimit ?: 0L
-                )
+                if (budget != null && budget.amountLimit > 0) {
+                    BudgetCategoryItemModel(
+                        categoryId = category.id,
+                        categoryName = category.categoryName,
+                        iconName = category.icon,
+                        colorHex = category.color,
+                        budgetId = budget.id,
+                        allocatedAmount = budget.amountLimit
+                    )
+                } else null
             }
             BudgetScreenData(categories = itemModels)
         }

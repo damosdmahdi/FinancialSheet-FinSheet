@@ -3,12 +3,14 @@ package com.mobileprogramming.finsheet.ui.features.settings
 import android.content.SharedPreferences
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 data class SettingsUiState(
     val anggaranHarian: Boolean = true,
@@ -18,7 +20,8 @@ data class SettingsUiState(
     val isUserLoggedIn: Boolean = false,
     val userDisplayName: String? = null,
     val userEmail: String? = null,
-    val userPhotoUrl: String? = null
+    val userPhotoUrl: String? = null,
+    val customProfilePhotoPath: String? = null
 )
 
 class SettingsViewModel(
@@ -44,13 +47,15 @@ class SettingsViewModel(
         val weeklyBudget = sharedPreferences.getBoolean("anggaran_mingguan_terlewati", true)
         val monthlyBudget = sharedPreferences.getBoolean("anggaran_bulanan_terlewati", true)
         val sheetName = sharedPreferences.getString("google_sheet_name", "Belum terhubung ke Google Sheet") ?: "Belum terhubung ke Google Sheet"
+        val customPhoto = sharedPreferences.getString("custom_profile_photo", null)
         
         _uiState.update { currentState ->
             currentState.copy(
                 anggaranHarian = dailyBudget,
                 anggaranMingguan = weeklyBudget,
                 anggaranBulanan = monthlyBudget,
-                selectedGoogleSheet = sheetName
+                selectedGoogleSheet = sheetName,
+                customProfilePhotoPath = customPhoto
             )
         }
     }
@@ -93,6 +98,25 @@ class SettingsViewModel(
     fun setGoogleSheetName(value: String) {
         sharedPreferences.edit().putString("google_sheet_name", value).apply()
         _uiState.update { it.copy(selectedGoogleSheet = value) }
+    }
+
+    fun saveCustomProfilePhoto(context: android.content.Context, uri: android.net.Uri) {
+        viewModelScope.launch {
+            try {
+                val inputStream = context.contentResolver.openInputStream(uri)
+                if (inputStream != null) {
+                    val file = java.io.File(context.filesDir, "custom_profile_photo.jpg")
+                    file.outputStream().use { outputStream ->
+                        inputStream.copyTo(outputStream)
+                    }
+                    val path = file.absolutePath
+                    sharedPreferences.edit().putString("custom_profile_photo", path).apply()
+                    _uiState.update { it.copy(customProfilePhotoPath = path) }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
     }
 
     fun signOut() {
