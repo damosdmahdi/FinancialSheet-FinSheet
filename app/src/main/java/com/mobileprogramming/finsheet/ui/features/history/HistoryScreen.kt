@@ -125,7 +125,7 @@ fun HistoryScreen(
     onNavigateBack: () -> Unit = {},
     onNavigateToAddTransaction: () -> Unit = {},
     onNavigateToDashboard: () -> Unit = {},
-    onNavigateToTransaction: () -> Unit = {}   // [REVISI 3] navigasi ke halaman transaksi
+    onNavigateToTransaction: (String?) -> Unit = {}   // [REVISI 3] navigasi ke halaman transaksi
 ) {
     /* ---- Local UI state ---- */
     var selectedFilter          by remember { mutableStateOf(TransactionFilter.SEMUA) }
@@ -362,7 +362,7 @@ fun HistoryScreen(
                         primaryBlue = primaryBlue,
                         incomeGreen = incomeGreen,
                         expenseRed  = expenseRed,
-                        onClick     = onNavigateToTransaction,
+                        onClick     = { onNavigateToTransaction(null) }, // Pass null for now since it's mock data
                         modifier    = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
                     )
                 }

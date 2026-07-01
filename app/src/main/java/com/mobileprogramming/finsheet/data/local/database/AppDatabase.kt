@@ -61,14 +61,32 @@ abstract class AppDatabase : RoomDatabase() {
             // 1. Buat Kategori Default
             val catIdFood = "cat-food"
             val catIdTransport = "cat-transport"
+            val catIdShopping = "cat-shopping"
             val catIdEdu = "cat-edu"
+            val catIdPocket = "cat-pocket"
             val catIdSalary = "cat-salary"
+            val catIdFreelance = "cat-freelance"
+            val catIdScholarship = "cat-scholarship"
+            val catIdGift = "cat-gift"
+            val catIdSales = "cat-sales"
+            val catIdOther = "cat-other"
 
             val categories = listOf(
-                CategoryEntity(id = catIdFood, categoryName = "Makanan & Minuman", type = "EXPENSE"),
-                CategoryEntity(id = catIdTransport, categoryName = "Transportasi", type = "EXPENSE"),
-                CategoryEntity(id = catIdEdu, categoryName = "Pendidikan", type = "EXPENSE"),
-                CategoryEntity(id = catIdSalary, categoryName = "Gaji", type = "INCOME"),
+                // Expense
+                CategoryEntity(id = catIdFood, categoryName = "Makanan", type = "EXPENSE", icon = "Restaurant", color = "FFFF8C00"),
+                CategoryEntity(id = catIdTransport, categoryName = "Transport", type = "EXPENSE", icon = "DirectionsCar", color = "FFFF8C00"),
+                CategoryEntity(id = catIdShopping, categoryName = "Belanja", type = "EXPENSE", icon = "ShoppingCart", color = "FFE53935"),
+                CategoryEntity(id = catIdEdu, categoryName = "Edukasi", type = "EXPENSE", icon = "School", color = "FF1A5BEB"),
+                CategoryEntity(id = "cat-expense-other", categoryName = "Lainnya", type = "EXPENSE", icon = "MoreHoriz", color = "FF7B7FA6"),
+
+                // Income
+                CategoryEntity(id = catIdPocket, categoryName = "Uang Saku", type = "INCOME", icon = "Savings", color = "FF1A5BEB"),
+                CategoryEntity(id = catIdSalary, categoryName = "Gaji", type = "INCOME", icon = "AccountBalanceWallet", color = "FF2E7D32"),
+                CategoryEntity(id = catIdFreelance, categoryName = "Freelance", type = "INCOME", icon = "Laptop", color = "FFFF8C00"),
+                CategoryEntity(id = catIdScholarship, categoryName = "Beasiswa", type = "INCOME", icon = "School", color = "FF7B1FA2"),
+                CategoryEntity(id = catIdGift, categoryName = "Hadiah", type = "INCOME", icon = "CardGiftcard", color = "FFE53935"),
+                CategoryEntity(id = catIdSales, categoryName = "Penjualan", type = "INCOME", icon = "Storefront", color = "FF00897B"),
+                CategoryEntity(id = "cat-income-other", categoryName = "Lainnya", type = "INCOME", icon = "MoreHoriz", color = "FF7B7FA6")
             )
             categoryDao.insertAllCategories(categories)
 

@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.toRoute
 import com.mobileprogramming.finsheet.ui.features.addtransaction.AddCategoryScreen
 import com.mobileprogramming.finsheet.ui.features.addtransaction.AddTransactionScreen
 import com.mobileprogramming.finsheet.ui.features.addtransaction.SelectCategoryScreen
@@ -36,7 +37,7 @@ fun FinSheetNavGraph(
         composable<Screen.Dashboard> {
             DashboardScreen(
                 onNavigateToAddTransaction = {
-                    navController.navigate(Screen.AddTransaction)
+                    navController.navigate(Screen.AddTransaction())
                 },
                 onNavigateToHistory = {
                     navController.navigate(Screen.History)
@@ -57,7 +58,7 @@ fun FinSheetNavGraph(
             HistoryScreen(
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToAddTransaction = {
-                    navController.navigate(Screen.AddTransaction)
+                    navController.navigate(Screen.AddTransaction())
                 },
                 onNavigateToDashboard = {
                     navController.navigate(Screen.Dashboard) {
@@ -65,14 +66,25 @@ fun FinSheetNavGraph(
                         launchSingleTop = true
                     }
                 },
-                onNavigateToTransaction = {
-                    navController.navigate(Screen.AddTransaction)
+                onNavigateToTransaction = { id ->
+                    navController.navigate(Screen.AddTransaction(transactionId = id))
                 }
             )
         }
 
-        composable<Screen.AddTransaction> {
+        composable<Screen.AddTransaction> { backStackEntry ->
+            val args = backStackEntry.arguments
+            val transactionId = args?.getString("transactionId") // Need to extract from savedStateHandle or args? Wait, with serialization it's backStackEntry.toRoute<Screen.AddTransaction>(). Let's use toRoute
+            val route = backStackEntry.toRoute<Screen.AddTransaction>()
+            val context = androidx.compose.ui.platform.LocalContext.current
+            val viewModel: com.mobileprogramming.finsheet.ui.features.addtransaction.AddEditTransactionViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+                factory = com.mobileprogramming.finsheet.di.Injection.provideTransactionViewModelFactory(context)
+            )
+            androidx.compose.runtime.LaunchedEffect(route.transactionId) {
+                viewModel.initForEdit(route.transactionId)
+            }
             AddTransactionScreen(
+                viewModel = viewModel,
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToSelectCategory = {
                     navController.navigate(Screen.SelectCategory)
@@ -83,8 +95,17 @@ fun FinSheetNavGraph(
             )
         }
 
-        composable<Screen.SelectCategory> {
+        composable<Screen.SelectCategory> { backStackEntry ->
+            val parentEntry = androidx.compose.runtime.remember(backStackEntry) {
+                navController.getBackStackEntry<Screen.AddTransaction>()
+            }
+            val context = androidx.compose.ui.platform.LocalContext.current
+            val viewModel: com.mobileprogramming.finsheet.ui.features.addtransaction.AddEditTransactionViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+                parentEntry,
+                factory = com.mobileprogramming.finsheet.di.Injection.provideTransactionViewModelFactory(context)
+            )
             SelectCategoryScreen(
+                viewModel = viewModel,
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToAddCategory = {
                     navController.navigate(Screen.AddCategory)
@@ -93,7 +114,12 @@ fun FinSheetNavGraph(
         }
 
         composable<Screen.AddCategory> {
+            val context = androidx.compose.ui.platform.LocalContext.current
+            val viewModel: com.mobileprogramming.finsheet.ui.features.addtransaction.AddCategoryViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+                factory = com.mobileprogramming.finsheet.di.Injection.provideTransactionViewModelFactory(context)
+            )
             AddCategoryScreen(
+                viewModel = viewModel,
                 onNavigateBack = { navController.popBackStack() }
             )
         }
@@ -116,7 +142,7 @@ fun FinSheetNavGraph(
                     navController.navigate(Screen.History)
                 },
                 onNavigateToAddTransaction = {
-                    navController.navigate(Screen.AddTransaction)
+                    navController.navigate(Screen.AddTransaction())
                 },
                 onNavigateToAnggaran = {
                     navController.navigate(Screen.Budget)
@@ -135,7 +161,7 @@ fun FinSheetNavGraph(
                     navController.navigate(Screen.History)
                 },
                 onNavigateToAddTransaction = {
-                    navController.navigate(Screen.AddTransaction)
+                    navController.navigate(Screen.AddTransaction())
                 },
                 onNavigateToSettings = {
                     navController.navigate(Screen.Settings)

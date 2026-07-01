@@ -31,30 +31,31 @@ import androidx.compose.ui.unit.dp
 
 private data class IconOption(
     val label: String,
+    val iconName: String,
     val icon: ImageVector
 )
 
 /** 8 ikon sesuai desain, tersusun dalam 2 baris × 4 kolom */
 private val availableIcons = listOf(
-    IconOption("Makan",   Icons.Outlined.Restaurant),
-    IconOption("Mobil",   Icons.Outlined.DirectionsCar),
-    IconOption("Buku",    Icons.AutoMirrored.Outlined.MenuBook),
-    IconOption("Belanja", Icons.Outlined.ShoppingCart),
-    IconOption("Sehat",   Icons.Outlined.HealthAndSafety),
-    IconOption("Game",    Icons.Outlined.SportsEsports),
-    IconOption("Rumah",   Icons.Outlined.Home),
-    IconOption("Travel",  Icons.Outlined.FlightTakeoff)
+    IconOption("Makan",   "Restaurant", Icons.Outlined.Restaurant),
+    IconOption("Mobil",   "DirectionsCar", Icons.Outlined.DirectionsCar),
+    IconOption("Buku",    "MenuBook", Icons.AutoMirrored.Outlined.MenuBook),
+    IconOption("Belanja", "ShoppingCart", Icons.Outlined.ShoppingCart),
+    IconOption("Sehat",   "HealthAndSafety", Icons.Outlined.HealthAndSafety),
+    IconOption("Game",    "SportsEsports", Icons.Outlined.SportsEsports),
+    IconOption("Rumah",   "Home", Icons.Outlined.Home),
+    IconOption("Travel",  "FlightTakeoff", Icons.Outlined.FlightTakeoff)
 )
 
 /** 7 warna sesuai desain: baris 1 = 5 warna, baris 2 = 2 warna */
 private val availableColors = listOf(
-    Color(0xFF1A3DA8),  // Navy Blue   (default terpilih)
-    Color(0xFF2DC653),  // Hijau
-    Color(0xFFFF8C00),  // Oranye
-    Color(0xFFE53935),  // Merah
-    Color(0xFF8E24AA),  // Ungu
-    Color(0xFFE91E8C),  // Hot Pink
-    Color(0xFF00ACC1)   // Teal
+    "1A3DA8",  // Navy Blue   (default terpilih)
+    "2DC653",  // Hijau
+    "FF8C00",  // Oranye
+    "E53935",  // Merah
+    "8E24AA",  // Ungu
+    "E91E8C",  // Hot Pink
+    "00ACC1"   // Teal
 )
 
 // ---------------------------------------------------------------------------
@@ -64,12 +65,16 @@ private val availableColors = listOf(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddCategoryScreen(
+    viewModel: AddCategoryViewModel,
     onNavigateBack: () -> Unit
 ) {
-    /* ---- Local UI state (lift to ViewModel later) ---- */
-    var categoryName  by remember { mutableStateOf("") }
-    var selectedIcon  by remember { mutableStateOf("Makan") }
-    var selectedColor by remember { mutableStateOf(availableColors[0]) }
+    val state by viewModel.state.collectAsState()
+    
+    LaunchedEffect(state.saveSuccess) {
+        if (state.saveSuccess) {
+            onNavigateBack()
+        }
+    }
 
     val primaryBlue = Color(0xFF1A5BEB)
 
@@ -103,7 +108,7 @@ fun AddCategoryScreen(
         bottomBar = {
             AddCategoryBottomBar(
                 onCancel = onNavigateBack,
-                onSave   = { /* TODO: dispatch save to ViewModel */ },
+                onSave   = { viewModel.saveCategory() },
                 primaryBlue = primaryBlue
             )
         }
@@ -120,8 +125,8 @@ fun AddCategoryScreen(
             // 1. Nama Kategori
             // ----------------------------------------------------------------
             CategoryNameSection(
-                value         = categoryName,
-                onValueChange = { categoryName = it },
+                value         = state.categoryName,
+                onValueChange = { viewModel.onNameChanged(it) },
                 primaryBlue   = primaryBlue
             )
 
@@ -132,9 +137,9 @@ fun AddCategoryScreen(
                 SectionTitle("Pilih Ikon")
                 IconPickerGrid(
                     icons          = availableIcons,
-                    selectedLabel  = selectedIcon,
-                    selectedColor  = selectedColor,
-                    onIconSelected = { selectedIcon = it }
+                    selectedIconName = state.selectedIcon,
+                    selectedColorHex = state.selectedColorHex,
+                    onIconSelected = { viewModel.onIconSelected(it) }
                 )
             }
 
@@ -145,8 +150,8 @@ fun AddCategoryScreen(
                 SectionTitle("Pilih Warna")
                 ColorPickerGrid(
                     colors          = availableColors,
-                    selectedColor   = selectedColor,
-                    onColorSelected = { selectedColor = it }
+                    selectedColorHex = state.selectedColorHex,
+                    onColorSelected = { viewModel.onColorSelected(it) }
                 )
             }
 
@@ -218,8 +223,8 @@ private fun CategoryNameSection(
 @Composable
 private fun IconPickerGrid(
     icons: List<IconOption>,
-    selectedLabel: String,
-    selectedColor: Color,
+    selectedIconName: String,
+    selectedColorHex: String,
     onIconSelected: (String) -> Unit
 ) {
     val chunked = icons.chunked(4)
@@ -234,9 +239,9 @@ private fun IconPickerGrid(
                     Box(modifier = Modifier.weight(1f)) {
                         IconGridItem(
                             option        = option,
-                            isSelected    = option.label == selectedLabel,
-                            selectedColor = selectedColor,
-                            onClick       = { onIconSelected(option.label) }
+                            isSelected    = option.iconName == selectedIconName,
+                            selectedColorHex = selectedColorHex,
+                            onClick       = { onIconSelected(option.iconName) }
                         )
                     }
                 }
@@ -253,9 +258,10 @@ private fun IconPickerGrid(
 private fun IconGridItem(
     option: IconOption,
     isSelected: Boolean,
-    selectedColor: Color,
+    selectedColorHex: String,
     onClick: () -> Unit
 ) {
+    val selectedColor = CategoryIconMapper.getColorByHex(selectedColorHex)
     val borderColor = if (isSelected) selectedColor
                       else MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
     val borderWidth = if (isSelected) 2.dp else 1.dp
@@ -303,20 +309,20 @@ private fun IconGridItem(
 
 @Composable
 private fun ColorPickerGrid(
-    colors: List<Color>,
-    selectedColor: Color,
-    onColorSelected: (Color) -> Unit
+    colors: List<String>,
+    selectedColorHex: String,
+    onColorSelected: (String) -> Unit
 ) {
     val chunked = colors.chunked(5)
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         chunked.forEach { rowColors ->
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                rowColors.forEach { color ->
+                rowColors.forEach { colorHex ->
                     ColorSwatch(
-                        color      = color,
-                        isSelected = color == selectedColor,
-                        onClick    = { onColorSelected(color) }
+                        colorHex   = colorHex,
+                        isSelected = colorHex == selectedColorHex,
+                        onClick    = { onColorSelected(colorHex) }
                     )
                 }
             }
@@ -326,10 +332,11 @@ private fun ColorPickerGrid(
 
 @Composable
 private fun ColorSwatch(
-    color: Color,
+    colorHex: String,
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
+    val color = CategoryIconMapper.getColorByHex(colorHex)
     Box(
         modifier = Modifier
             .size(44.dp)

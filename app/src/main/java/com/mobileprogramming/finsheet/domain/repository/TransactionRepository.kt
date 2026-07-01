@@ -9,4 +9,9 @@ interface TransactionRepository {
 
     fun getTotalAmountByTypeAndDate(type: String, startDate: Long, endDate: Long): Flow<Int?>
 
+    suspend fun getTransactionById(id: String): TransactionEntity?
+
+    suspend fun insertTransaction(transaction: TransactionEntity)
+
+    suspend fun updateTransaction(transaction: TransactionEntity)
 }

@@ -42,7 +42,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.mobileprogramming.finsheet.di.Injection
 import com.mobileprogramming.finsheet.ui.components.BottomNavigationBar
 import com.mobileprogramming.finsheet.ui.components.BudgetProgressItem
 import com.mobileprogramming.finsheet.ui.components.CategoryExpenseItem
@@ -50,7 +52,11 @@ import com.mobileprogramming.finsheet.ui.components.FilterChipsRow
 
 @Composable
 fun DashboardScreen(
-    viewModel: DashboardViewModel = viewModel(),
+    viewModel: DashboardViewModel = viewModel(
+        factory = DashboardViewModelFactory(
+            Injection.provideGetDashboardDataUseCase(LocalContext.current.applicationContext)
+        )
+    ),
     onNavigateToAddTransaction: () -> Unit,
     onNavigateToHistory: () -> Unit,
     onNavigateToReport: () -> Unit,

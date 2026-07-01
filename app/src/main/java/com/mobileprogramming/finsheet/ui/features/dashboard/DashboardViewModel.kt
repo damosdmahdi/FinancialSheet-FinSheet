@@ -1,12 +1,20 @@
 package com.mobileprogramming.finsheet.ui.features.dashboard
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.mobileprogramming.finsheet.domain.usecase.GetDashboardDataUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import java.text.NumberFormat
+import java.util.Locale
 
-class DashboardViewModel : ViewModel() {
+class DashboardViewModel(
+    private val getDashboardDataUseCase: GetDashboardDataUseCase
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(DashboardUiState())
     val uiState: StateFlow<DashboardUiState> = _uiState.asStateFlow()
@@ -16,44 +24,74 @@ class DashboardViewModel : ViewModel() {
     }
 
     private fun loadDashboardData() {
-        // Mocking API / Database load
-        val categoryExpenses = listOf(
-            CategoryExpenseData(ExpenseCategoryType.FOOD, "Makanan", "45%"),
-            CategoryExpenseData(ExpenseCategoryType.TRANSPORTATION, "Transportasi", "30%"),
-            CategoryExpenseData(ExpenseCategoryType.EDUCATION, "Buku & Kuliah", "15%"),
-            CategoryExpenseData(ExpenseCategoryType.OTHERS, "Lainnya", "10%")
-        )
+        viewModelScope.launch {
+            getDashboardDataUseCase()
+                .catch { e ->
+                    // Handle error if needed (Misal: log atau set state error)
+                }
+                .collect { dashboardData ->
+                    _uiState.update { currentState ->
+                        val format = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
+                        format.maximumFractionDigits = 0
 
-        val monthlyBudgets = listOf(
-            BudgetProgressData(
-                ExpenseCategoryType.FOOD, "Makanan", "75%", 0.75f,
-                "Rp 450.000", "Rp 600.000", "Rp 150.000"
-            ),
-            BudgetProgressData(
-                ExpenseCategoryType.TRANSPORTATION, "Transportasi", "40%", 0.40f,
-                "Rp 120.000", "Rp 300.000", "Rp 180.000"
-            ),
-            BudgetProgressData(
-                ExpenseCategoryType.EDUCATION, "Buku & Kuliah", "15%", 0.15f,
-                "Rp 75.000", "Rp 500.000", "Rp 425.000"
-            )
-        )
+                        // Map Category Expenses
+                        val catExpenses = dashboardData.categoryExpenses.map { cat ->
+                            val percent = if (dashboardData.expenseThisMonth > 0) {
+                                (cat.totalAmount.toFloat() / dashboardData.expenseThisMonth * 100).toInt()
+                            } else 0
+                            
+                            val type = mapCategoryToType(cat.categoryId)
+                            CategoryExpenseData(
+                                categoryType = type,
+                                categoryName = cat.categoryName,
+                                percentage = "$percent%"
+                            )
+                        }
 
-        _uiState.update { currentState ->
-            currentState.copy(
-                totalBalance = "Rp 120.458.000",
-                incomeThisMonth = "Rp 5.200.000",
-                expenseThisMonth = "Rp 1.750.000",
-                totalExpenseForFilter = "Rp 1.750.000",
-                categoryExpenses = categoryExpenses,
-                monthlyBudgets = monthlyBudgets
-            )
+                        // Map Budget Progress
+                        val budgets = dashboardData.monthlyBudgets.map { budget ->
+                            val progress = if (budget.limitAmount > 0) {
+                                budget.usedAmount.toFloat() / budget.limitAmount
+                            } else 0f
+                            
+                            val type = mapCategoryToType(budget.categoryId)
+                            val remaining = budget.limitAmount - budget.usedAmount
+                            
+                            BudgetProgressData(
+                                categoryType = type,
+                                budgetName = budget.budgetName,
+                                percentage = "${(progress * 100).toInt()}%",
+                                progress = progress.coerceAtMost(1f),
+                                usedAmountStr = format.format(budget.usedAmount).replace("Rp", "Rp "),
+                                totalAmountStr = format.format(budget.limitAmount).replace("Rp", "Rp "),
+                                remainingAmountStr = format.format(remaining.coerceAtLeast(0)).replace("Rp", "Rp ")
+                            )
+                        }
+
+                        currentState.copy(
+                            totalBalance = format.format(dashboardData.totalBalance).replace("Rp", "Rp "),
+                            incomeThisMonth = format.format(dashboardData.incomeThisMonth).replace("Rp", "Rp "),
+                            expenseThisMonth = format.format(dashboardData.expenseThisMonth).replace("Rp", "Rp "),
+                            totalExpenseForFilter = format.format(dashboardData.expenseThisMonth).replace("Rp", "Rp "),
+                            categoryExpenses = catExpenses,
+                            monthlyBudgets = budgets
+                        )
+                    }
+                }
+        }
+    }
+
+    private fun mapCategoryToType(categoryId: String): ExpenseCategoryType {
+        return when (categoryId) {
+            "cat-food" -> ExpenseCategoryType.FOOD
+            "cat-transport" -> ExpenseCategoryType.TRANSPORTATION
+            "cat-edu" -> ExpenseCategoryType.EDUCATION
+            else -> ExpenseCategoryType.OTHERS
         }
     }
 
     fun setFilterIndex(index: Int) {
         _uiState.update { it.copy(selectedFilterIndex = index) }
-        // Depending on filter, we might update totalExpenseForFilter and categoryExpenses
-        // For now, it just changes the selected chip
+        // Filter by Date (Today, This Week, This Month) implementation can be added here
     }
 }

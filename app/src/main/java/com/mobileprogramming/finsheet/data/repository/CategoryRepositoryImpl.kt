@@ -8,4 +8,15 @@ import kotlinx.coroutines.flow.Flow
 class CategoryRepositoryImpl(private val categoryDao: CategoryDao) : CategoryRepository {
     override fun getAllActiveCategories(): Flow<List<CategoryEntity>> =
         categoryDao.getAllActiveCategories()
+
+    override fun getActiveCategoriesByType(type: String): Flow<List<CategoryEntity>> =
+        categoryDao.getActiveCategoriesByType(type)
+
+    override suspend fun insertCategory(category: CategoryEntity) {
+        categoryDao.insertCategory(category)
+    }
+
+    override suspend fun updateCategory(category: CategoryEntity) {
+        categoryDao.updateCategory(category)
+    }
 }

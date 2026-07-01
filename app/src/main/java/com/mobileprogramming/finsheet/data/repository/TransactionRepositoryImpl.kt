@@ -15,4 +15,15 @@ class TransactionRepositoryImpl(
 
     override fun getTotalAmountByTypeAndDate(type: String, startDate: Long, endDate: Long): Flow<Int?> =
         transactionDao.getTotalAmountByTypeAndDate(type, startDate, endDate)
+
+    override suspend fun getTransactionById(id: String): TransactionEntity? =
+        transactionDao.getTransactionById(id)
+
+    override suspend fun insertTransaction(transaction: TransactionEntity) {
+        transactionDao.insertTransaction(transaction)
+    }
+
+    override suspend fun updateTransaction(transaction: TransactionEntity) {
+        transactionDao.updateTransaction(transaction)
+    }
 }
