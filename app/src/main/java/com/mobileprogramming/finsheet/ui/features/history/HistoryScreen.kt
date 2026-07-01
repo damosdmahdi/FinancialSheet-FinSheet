@@ -28,83 +28,14 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 // ---------------------------------------------------------------------------
-// Data models (UI-only — lift to domain + ViewModel later)
+// Screen
 // ---------------------------------------------------------------------------
 
-private enum class TransactionFilter { SEMUA, PENGELUARAN, PEMASUKAN }
-
-private data class TransactionItem(
-    val title: String,
-    val time: String,
-    val category: String,
-    val amount: String,
-    val isExpense: Boolean,
-    val icon: ImageVector
-)
-
-private data class TransactionGroup(
-    val dateLabel: String,
-    val items: List<TransactionItem>
-)
-
-/** Data dummy sesuai desain */
-private val mockTransactionGroups = listOf(
-    TransactionGroup(
-        dateLabel = "Hari ini",
-        items = listOf(
-            TransactionItem(
-                title     = "Makan Siang Kopma",
-                time      = "12:30",
-                category  = "Makanan",
-                amount    = "-Rp 35.000",
-                isExpense = true,
-                icon      = Icons.Outlined.Restaurant
-            ),
-            TransactionItem(
-                title     = "Transfer dari Orang Tus",
-                time      = "09:15",
-                category  = "Pemasukan",
-                amount    = "+Rp 1.500.000",
-                isExpense = false,
-                icon      = Icons.Outlined.AccountBalance
-            )
-        )
-    ),
-    TransactionGroup(
-        dateLabel = "Kemarin",
-        items = listOf(
-            TransactionItem(
-                title     = "Isi Bensin Motor",
-                time      = "16:45",
-                category  = "Transportasi",
-                amount    = "-Rp 25.000",
-                isExpense = true,
-                icon      = Icons.Outlined.DirectionsCar
-            ),
-            TransactionItem(
-                title     = "Buku Catatan Kuliah",
-                time      = "10:20",
-                category  = "Edukasi",
-                amount    = "-Rp 45.000",
-                isExpense = true,
-                icon      = Icons.AutoMirrored.Outlined.MenuBook
-            )
-        )
-    ),
-    TransactionGroup(
-        dateLabel = "10 Okt 2023",
-        items = listOf(
-            TransactionItem(
-                title     = "Belanja Bulanan Kos",
-                time      = "19:00",
-                category  = "Kebutuhan",
-                amount    = "-Rp 150.000",
-                isExpense = true,
-                icon      = Icons.Outlined.ShoppingCart
-            )
-        )
-    )
-)
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.mobileprogramming.finsheet.di.Injection
+import com.mobileprogramming.finsheet.ui.features.addtransaction.CategoryIconMapper
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -115,13 +46,14 @@ private fun formatDateMillis(millis: Long): String {
     return sdf.format(Date(millis))
 }
 
-// ---------------------------------------------------------------------------
-// Screen
-// ---------------------------------------------------------------------------
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HistoryScreen(
+    viewModel: HistoryViewModel = viewModel(
+        factory = HistoryViewModelFactory(
+            Injection.provideGetAllTransactionsUseCase(LocalContext.current.applicationContext)
+        )
+    ),
     onNavigateBack: () -> Unit = {},
     onNavigateToAddTransaction: () -> Unit = {},
     onNavigateToDashboard: () -> Unit = {},
@@ -129,8 +61,9 @@ fun HistoryScreen(
     onNavigateToAnggaran: () -> Unit = {},
     onNavigateToSettings: () -> Unit = {}
 ) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
     /* ---- Local UI state ---- */
-    var selectedFilter          by remember { mutableStateOf(TransactionFilter.SEMUA) }
     var showDatePicker          by remember { mutableStateOf(false) }          // [REVISI 1]
     var isSyncing               by remember { mutableStateOf(false) }         // [REVISI 2]
 
@@ -157,20 +90,7 @@ fun HistoryScreen(
     val expenseRed    = Color(0xFFE53935)
     val segmentedBg   = MaterialTheme.colorScheme.surfaceContainerHigh
 
-    // Filter the groups based on selected tab
-    val filteredGroups = remember(selectedFilter) {
-        when (selectedFilter) {
-            TransactionFilter.SEMUA -> mockTransactionGroups
-            TransactionFilter.PENGELUARAN -> mockTransactionGroups.mapNotNull { group ->
-                val filtered = group.items.filter { it.isExpense }
-                if (filtered.isEmpty()) null else group.copy(items = filtered)
-            }
-            TransactionFilter.PEMASUKAN -> mockTransactionGroups.mapNotNull { group ->
-                val filtered = group.items.filter { !it.isExpense }
-                if (filtered.isEmpty()) null else group.copy(items = filtered)
-            }
-        }
-    }
+    // Filter the groups based on selected tab is now handled in ViewModel
 
     // [REVISI 1] Modal DateRangePicker
     if (showDatePicker) {
@@ -327,8 +247,8 @@ fun HistoryScreen(
             // ----------------------------------------------------------------
             item {
                 FilterTabRow(
-                    selected    = selectedFilter,
-                    onSelect    = { selectedFilter = it },
+                    selected    = uiState.selectedFilter,
+                    onSelect    = { viewModel.setFilter(it) },
                     primaryBlue = primaryBlue,
                     segmentedBg = segmentedBg,
                     modifier    = Modifier.padding(horizontal = 16.dp)
@@ -339,41 +259,54 @@ fun HistoryScreen(
             // ----------------------------------------------------------------
             // Transaction groups
             // ----------------------------------------------------------------
-            filteredGroups.forEach { group ->
-                // Date section header
-                item(key = "header_${group.dateLabel}") {
-                    Text(
-                        text     = group.dateLabel,
-                        style    = MaterialTheme.typography.labelMedium.copy(
-                            fontWeight = FontWeight.SemiBold,
-                            color      = MaterialTheme.colorScheme.onSurfaceVariant
-                        ),
-                        modifier = Modifier.padding(
-                            horizontal = 16.dp,
-                            vertical   = 6.dp
+            if (uiState.isLoading) {
+                item {
+                    Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = primaryBlue)
+                    }
+                }
+            } else if (uiState.transactions.isEmpty()) {
+                item {
+                    Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                        Text("Belum ada transaksi.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            } else {
+                uiState.transactions.forEach { group ->
+                    // Date section header
+                    item(key = "header_${group.dateLabel}") {
+                        Text(
+                            text     = group.dateLabel,
+                            style    = MaterialTheme.typography.labelMedium.copy(
+                                fontWeight = FontWeight.SemiBold,
+                                color      = MaterialTheme.colorScheme.onSurfaceVariant
+                            ),
+                            modifier = Modifier.padding(
+                                horizontal = 16.dp,
+                                vertical   = 6.dp
+                            )
                         )
-                    )
-                }
+                    }
 
-                // Transaction items in the group
-                items(
-                    items = group.items,
-                    key   = { "${group.dateLabel}_${it.title}_${it.time}" }
-                ) { tx ->
-                    // [REVISI 3] Klik item → navigasi ke halaman transaksi
-                    TransactionRow(
-                        item        = tx,
-                        primaryBlue = primaryBlue,
-                        incomeGreen = incomeGreen,
-                        expenseRed  = expenseRed,
-                        onClick     = onNavigateToTransaction,
-                        modifier    = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-                    )
-                }
+                    // Transaction items in the group
+                    items(
+                        items = group.items,
+                        key   = { it.id } // Fixed: Use unique transaction ID as key
+                    ) { tx ->
+                        // [REVISI 3] Klik item → navigasi ke halaman transaksi
+                        TransactionRow(
+                            item        = tx,
+                            incomeGreen = incomeGreen,
+                            expenseRed  = expenseRed,
+                            onClick     = { onNavigateToTransaction(tx.id) }, 
+                            modifier    = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                        )
+                    }
 
-                // Spacing after each group
-                item(key = "spacer_${group.dateLabel}") {
-                    Spacer(modifier = Modifier.height(8.dp))
+                    // Spacing after each group
+                    item(key = "spacer_${group.dateLabel}") {
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
                 }
             }
         }
@@ -566,14 +499,15 @@ private fun FilterTab(
  */
 @Composable
 private fun TransactionRow(
-    item: TransactionItem,
-    primaryBlue: Color,
+    item: TransactionItemUI,
     incomeGreen: Color,
     expenseRed: Color,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val amountColor = if (item.isExpense) expenseRed else incomeGreen
+    val iconColor = CategoryIconMapper.getColorByHex(item.colorHex)
+    val bgColor = CategoryIconMapper.getBackgroundColorByHex(item.colorHex)
 
     Row(
         modifier = modifier
@@ -589,13 +523,13 @@ private fun TransactionRow(
             modifier = Modifier
                 .size(44.dp)
                 .clip(CircleShape)
-                .background(primaryBlue.copy(alpha = 0.10f)),
+                .background(bgColor),
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                imageVector        = item.icon,
+                imageVector        = CategoryIconMapper.getIconByName(item.iconName),
                 contentDescription = item.category,
-                tint               = primaryBlue,
+                tint               = iconColor,
                 modifier           = Modifier.size(22.dp)
             )
         }

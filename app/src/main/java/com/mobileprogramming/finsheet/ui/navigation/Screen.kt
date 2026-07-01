@@ -6,7 +6,7 @@ sealed class Screen {
     @Serializable
     object Dashboard : Screen()
     @Serializable
-    object AddTransaction : Screen()
+    data class AddTransaction(val transactionId: String? = null) : Screen()
     @Serializable
     object SelectCategory : Screen()
     @Serializable

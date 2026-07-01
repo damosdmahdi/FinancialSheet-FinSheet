@@ -32,23 +32,14 @@ import androidx.compose.ui.unit.sp
 // Data model (UI-only — replace with domain model + ViewModel)
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Helper mapping
+// ---------------------------------------------------------------------------
 private data class SelectableCategoryItem(
+    val entity: com.mobileprogramming.finsheet.data.local.entity.CategoryEntity,
     val label: String,
     val icon: ImageVector,
-    val tint: Color = Color(0xFF1A5BEB)          // default blue; override per-item below
-)
-
-private val popularCategories = listOf(
-    SelectableCategoryItem("Makanan",   Icons.Outlined.Restaurant,    Color(0xFFE65100)),
-    SelectableCategoryItem("Transport", Icons.Outlined.DirectionsCar, Color(0xFF1565C0)),
-    SelectableCategoryItem("Edukasi",   Icons.Outlined.School,        Color(0xFF6A1B9A)),
-    SelectableCategoryItem("Belanja",   Icons.Outlined.ShoppingCart,  Color(0xFFAD1457)),
-    SelectableCategoryItem("Hiburan",   Icons.Outlined.SportsEsports, Color(0xFF00695C)),
-    SelectableCategoryItem("Simpanan",  Icons.Outlined.Savings,       Color(0xFF2E7D32)),
-    SelectableCategoryItem("Kesehatan", Icons.Outlined.HealthAndSafety, Color(0xFFC62828)),
-    SelectableCategoryItem("Kuota",     Icons.Outlined.Wifi,          Color(0xFF0277BD)),
-    SelectableCategoryItem("Kos",       Icons.Outlined.Home,          Color(0xFF4527A0)),
-    SelectableCategoryItem("Lainnya",   Icons.Outlined.MoreHoriz,     Color(0xFF37474F))
+    val tint: Color
 )
 
 // ---------------------------------------------------------------------------
@@ -58,19 +49,33 @@ private val popularCategories = listOf(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SelectCategoryScreen(
+    viewModel: AddEditTransactionViewModel,
     onNavigateBack: () -> Unit,
     onNavigateToAddCategory: () -> Unit
 ) {
-    /* ---- Local UI state (lift to ViewModel later) ---- */
+    val state by viewModel.state.collectAsState()
+    
+    /* ---- Local UI state ---- */
     var searchQuery by remember { mutableStateOf("") }
-    var selectedLabel by remember { mutableStateOf<String?>(null) }
+    var selectedCategoryEntity by remember { mutableStateOf<com.mobileprogramming.finsheet.data.local.entity.CategoryEntity?>(null) }
 
     val primaryBlue = Color(0xFF1A5BEB)
 
     // Filter categories by search query
-    val filteredCategories = remember(searchQuery) {
-        if (searchQuery.isBlank()) popularCategories
-        else popularCategories.filter {
+    val allCategories = remember(state.categories) {
+        state.categories.map {
+            SelectableCategoryItem(
+                entity = it,
+                label = it.categoryName,
+                icon = CategoryIconMapper.getIconByName(it.icon),
+                tint = CategoryIconMapper.getColorByHex(it.color)
+            )
+        }
+    }
+    
+    val filteredCategories = remember(searchQuery, allCategories) {
+        if (searchQuery.isBlank()) allCategories
+        else allCategories.filter {
             it.label.contains(searchQuery, ignoreCase = true)
         }
     }
@@ -110,8 +115,13 @@ fun SelectCategoryScreen(
                 color = MaterialTheme.colorScheme.surface
             ) {
                 Button(
-                    onClick = { /* TODO: dispatch confirmed category to ViewModel */ },
-                    enabled = selectedLabel != null,
+                    onClick = { 
+                        selectedCategoryEntity?.let {
+                            viewModel.onCategorySelected(it)
+                            onNavigateBack()
+                        }
+                    },
+                    enabled = selectedCategoryEntity != null,
                     modifier = Modifier
                         .fillMaxWidth()
                         .navigationBarsPadding()
@@ -187,9 +197,9 @@ fun SelectCategoryScreen(
             items(filteredCategories) { item ->
                 SelectableCategoryGridItem(
                     item = item,
-                    isSelected = selectedLabel == item.label,
+                    isSelected = selectedCategoryEntity?.id == item.entity.id,
                     primaryBlue = primaryBlue,
-                    onClick = { selectedLabel = item.label }
+                    onClick = { selectedCategoryEntity = item.entity }
                 )
             }
 
