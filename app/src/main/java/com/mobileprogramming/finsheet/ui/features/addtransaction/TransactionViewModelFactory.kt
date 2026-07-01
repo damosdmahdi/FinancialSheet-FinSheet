@@ -8,12 +8,19 @@ import com.mobileprogramming.finsheet.domain.usecase.GetCategoriesByTypeUseCase
 import com.mobileprogramming.finsheet.domain.usecase.GetTransactionByIdUseCase
 import com.mobileprogramming.finsheet.domain.usecase.UpdateTransactionUseCase
 
+import android.content.Context
+import android.content.SharedPreferences
+import com.mobileprogramming.finsheet.domain.usecase.budget.CheckTransactionBudgetLimitUseCase
+
 class TransactionViewModelFactory(
     private val addTransactionUseCase: AddTransactionUseCase,
     private val updateTransactionUseCase: UpdateTransactionUseCase,
     private val getTransactionByIdUseCase: GetTransactionByIdUseCase,
     private val getCategoriesByTypeUseCase: GetCategoriesByTypeUseCase,
-    private val addCategoryUseCase: AddCategoryUseCase
+    private val addCategoryUseCase: AddCategoryUseCase,
+    private val checkTransactionBudgetLimitUseCase: CheckTransactionBudgetLimitUseCase,
+    private val sharedPreferences: SharedPreferences,
+    private val context: Context
 ) : ViewModelProvider.Factory {
 
     @Suppress("UNCHECKED_CAST")
@@ -24,7 +31,10 @@ class TransactionViewModelFactory(
                     addTransactionUseCase,
                     updateTransactionUseCase,
                     getTransactionByIdUseCase,
-                    getCategoriesByTypeUseCase
+                    getCategoriesByTypeUseCase,
+                    checkTransactionBudgetLimitUseCase,
+                    sharedPreferences,
+                    context
                 ) as T
             }
             modelClass.isAssignableFrom(AddCategoryViewModel::class.java) -> {
