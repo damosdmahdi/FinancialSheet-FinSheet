@@ -104,10 +104,8 @@ dependencies {
     implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.0")
     implementation("io.coil-kt:coil-compose:2.6.0")
-    
-    // For GoogleAuthUtil to get OAuth token
-    implementation("com.google.android.gms:play-services-auth:21.2.0")
-    
-    // For HTTP Requests to Google APIs
-    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+
+    // Retrofit & Gson
+    implementation("com.squareup.retrofit2:retrofit:2.11.0")
+    implementation("com.squareup.retrofit2:converter-gson:2.11.0")
 }

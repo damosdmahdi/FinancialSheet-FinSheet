@@ -50,25 +50,22 @@ private fun formatDateMillis(millis: Long): String {
 @Composable
 fun HistoryScreen(
     viewModel: HistoryViewModel = viewModel(
-        factory = HistoryViewModelFactory(
-            Injection.provideGetAllTransactionsUseCase(LocalContext.current.applicationContext),
-            Injection.provideSyncTransactionsUseCase(LocalContext.current.applicationContext)
-        )
+        factory = Injection.provideHistoryViewModelFactory(LocalContext.current.applicationContext)
     ),
     onNavigateBack: () -> Unit = {},
     onNavigateToAddTransaction: () -> Unit = {},
     onNavigateToDashboard: () -> Unit = {},
-    onNavigateToTransaction: (String) -> Unit = {},   // [REVISI 3] navigasi ke halaman transaksi
+    onNavigateToTransaction: (String) -> Unit = {},
     onNavigateToAnggaran: () -> Unit = {},
     onNavigateToSettings: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     /* ---- Local UI state ---- */
-    var showDatePicker          by remember { mutableStateOf(false) }          // [REVISI 1]
-    var isSyncing               by remember { mutableStateOf(false) }         // [REVISI 2]
+    var showDatePicker          by remember { mutableStateOf(false) }
+    var isSyncing               by remember { mutableStateOf(false) }
 
-    // [REVISI 1] Rentang tanggal dari DateRangePicker
+    // Rentang tanggal dari DateRangePicker
     val dateRangePickerState = rememberDateRangePickerState()
     val dateRangeText = remember(
         dateRangePickerState.selectedStartDateMillis,
@@ -82,7 +79,7 @@ fun HistoryScreen(
             start != null ->
                 "${formatDateMillis(start)} - ..."
             else ->
-                "1 Okt - 10 Okt 2023"
+                "Pilih Rentang Waktu"
         }
     }
 
@@ -91,9 +88,6 @@ fun HistoryScreen(
     val expenseRed    = Color(0xFFE53935)
     val segmentedBg   = MaterialTheme.colorScheme.surfaceContainerHigh
 
-    // Filter the groups based on selected tab is now handled in ViewModel
-
-    // [REVISI 1] Modal DateRangePicker
     if (showDatePicker) {
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
@@ -197,10 +191,7 @@ fun HistoryScreen(
                 .padding(paddingValues),
             contentPadding = PaddingValues(bottom = 8.dp)
         ) {
-            // ----------------------------------------------------------------
-            // Header row: "Riwayat" title + Sync chip
-            // ----------------------------------------------------------------
-            item {
+            item(key = "header_title") {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -215,38 +206,19 @@ fun HistoryScreen(
                         ),
                         color = MaterialTheme.colorScheme.onSurface
                     )
-                    // [REVISI 2] Chip yang bisa diklik untuk sinkron manual
-                    val context = LocalContext.current
                     SyncStatusChip(
                         isSyncing = isSyncing,
                         primaryBlue = primaryBlue,
                         onClick   = {
                             if (!isSyncing) {
                                 isSyncing = true
-                                val email = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.email
-                                if (email != null) {
-                                    viewModel.syncToGoogleSheets(email) { success ->
-                                        isSyncing = false
-                                        if (success) {
-                                            android.widget.Toast.makeText(context, "Berhasil Sinkron!", android.widget.Toast.LENGTH_SHORT).show()
-                                        } else {
-                                            android.widget.Toast.makeText(context, "Gagal Sinkron atau Tidak ada data baru", android.widget.Toast.LENGTH_SHORT).show()
-                                        }
-                                    }
-                                } else {
-                                    isSyncing = false
-                                    android.widget.Toast.makeText(context, "Harap login dengan Google", android.widget.Toast.LENGTH_SHORT).show()
-                                }
                             }
                         }
                     )
                 }
             }
 
-            // ----------------------------------------------------------------
-            // [REVISI 1] Date range selector — membuka modal DateRangePicker
-            // ----------------------------------------------------------------
-            item {
+            item(key = "date_range_selector") {
                 DateRangeRow(
                     label       = dateRangeText,
                     onToggle    = { showDatePicker = true },
@@ -256,10 +228,7 @@ fun HistoryScreen(
                 Spacer(modifier = Modifier.height(12.dp))
             }
 
-            // ----------------------------------------------------------------
-            // [REVISI 4] Filter tabs: Semua / Pengeluaran / Pemasukan — ukuran sama
-            // ----------------------------------------------------------------
-            item {
+            item(key = "filter_tabs") {
                 FilterTabRow(
                     selected    = uiState.selectedFilter,
                     onSelect    = { viewModel.setFilter(it) },
@@ -270,25 +239,21 @@ fun HistoryScreen(
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
-            // ----------------------------------------------------------------
-            // Transaction groups
-            // ----------------------------------------------------------------
             if (uiState.isLoading) {
-                item {
+                item(key = "loading_indicator") {
                     Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator(color = primaryBlue)
                     }
                 }
             } else if (uiState.transactions.isEmpty()) {
-                item {
+                item(key = "empty_state") {
                     Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
                         Text("Belum ada transaksi.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             } else {
-                uiState.transactions.forEach { group ->
-                    // Date section header
-                    item(key = "header_${group.dateLabel}") {
+                uiState.transactions.forEachIndexed { index, group ->
+                    item(key = "header_${group.dateLabel}_$index") {
                         Text(
                             text     = group.dateLabel,
                             style    = MaterialTheme.typography.labelMedium.copy(
@@ -302,12 +267,10 @@ fun HistoryScreen(
                         )
                     }
 
-                    // Transaction items in the group
                     items(
                         items = group.items,
-                        key   = { it.id } // Fixed: Use unique transaction ID as key
+                        key   = { it.id } 
                     ) { tx ->
-                        // [REVISI 3] Klik item → navigasi ke halaman transaksi
                         TransactionRow(
                             item        = tx,
                             incomeGreen = incomeGreen,
@@ -317,8 +280,7 @@ fun HistoryScreen(
                         )
                     }
 
-                    // Spacing after each group
-                    item(key = "spacer_${group.dateLabel}") {
+                    item(key = "spacer_${group.dateLabel}_$index") {
                         Spacer(modifier = Modifier.height(8.dp))
                     }
                 }
@@ -327,13 +289,6 @@ fun HistoryScreen(
     }
 }
 
-// ---------------------------------------------------------------------------
-// Sub-composables
-// ---------------------------------------------------------------------------
-
-/**
- * [REVISI 2] Chip "Sudah Sinkron" / "Sinkronkan" yang bisa diklik untuk sinkron manual.
- */
 @Composable
 private fun SyncStatusChip(
     isSyncing: Boolean,
@@ -382,9 +337,6 @@ private fun SyncStatusChip(
     }
 }
 
-/**
- * [REVISI 1] Baris pemilih rentang tanggal — onToggle membuka DateRangePicker modal.
- */
 @Composable
 private fun DateRangeRow(
     label: String,
@@ -436,9 +388,6 @@ private fun DateRangeRow(
     }
 }
 
-/**
- * [REVISI 4] Tab filter Semua / Pengeluaran / Pemasukan dengan ukuran yang sama rata.
- */
 @Composable
 private fun FilterTabRow(
     selected: TransactionFilter,
@@ -455,7 +404,6 @@ private fun FilterTabRow(
             .padding(4.dp)
     ) {
         Row(modifier = Modifier.fillMaxWidth()) {
-            // weight(1f) yang sama untuk ketiga tombol
             FilterTab(
                 label       = "Semua",
                 isSelected  = selected == TransactionFilter.SEMUA,
@@ -508,9 +456,6 @@ private fun FilterTab(
     }
 }
 
-/**
- * [REVISI 3] Baris satu transaksi — klik membuka halaman edit transaksi.
- */
 @Composable
 private fun TransactionRow(
     item: TransactionItemUI,
@@ -527,12 +472,11 @@ private fun TransactionRow(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(10.dp))
-            .clickable(onClick = onClick)         // [REVISI 3] navigasi ke transaksi
+            .clickable(onClick = onClick)
             .padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // Circular icon
         Box(
             modifier = Modifier
                 .size(44.dp)
@@ -548,7 +492,6 @@ private fun TransactionRow(
             )
         }
 
-        // Title + time • category
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text     = item.title,
@@ -567,7 +510,6 @@ private fun TransactionRow(
             )
         }
 
-        // Amount
         Text(
             text  = item.amount,
             style = MaterialTheme.typography.bodyMedium.copy(
