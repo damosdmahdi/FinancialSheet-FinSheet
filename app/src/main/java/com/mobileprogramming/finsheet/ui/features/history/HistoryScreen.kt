@@ -205,6 +205,7 @@ fun HistoryScreen(
                         ),
                         color = MaterialTheme.colorScheme.onSurface
                     )
+                    val context = LocalContext.current
                     SyncStatusChip(
                         isSyncing = isSyncing,
                         primaryBlue = primaryBlue,
