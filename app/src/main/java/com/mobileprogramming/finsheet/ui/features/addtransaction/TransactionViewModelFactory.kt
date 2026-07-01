@@ -7,13 +7,15 @@ import com.mobileprogramming.finsheet.domain.usecase.AddTransactionUseCase
 import com.mobileprogramming.finsheet.domain.usecase.GetCategoriesByTypeUseCase
 import com.mobileprogramming.finsheet.domain.usecase.GetTransactionByIdUseCase
 import com.mobileprogramming.finsheet.domain.usecase.UpdateTransactionUseCase
+import com.mobileprogramming.finsheet.domain.usecase.currency.GetActiveCurrencyFlowUseCase
 
 class TransactionViewModelFactory(
     private val addTransactionUseCase: AddTransactionUseCase,
     private val updateTransactionUseCase: UpdateTransactionUseCase,
     private val getTransactionByIdUseCase: GetTransactionByIdUseCase,
     private val getCategoriesByTypeUseCase: GetCategoriesByTypeUseCase,
-    private val addCategoryUseCase: AddCategoryUseCase
+    private val addCategoryUseCase: AddCategoryUseCase,
+    private val getActiveCurrencyFlowUseCase: GetActiveCurrencyFlowUseCase
 ) : ViewModelProvider.Factory {
 
     @Suppress("UNCHECKED_CAST")
@@ -24,7 +26,8 @@ class TransactionViewModelFactory(
                     addTransactionUseCase,
                     updateTransactionUseCase,
                     getTransactionByIdUseCase,
-                    getCategoriesByTypeUseCase
+                    getCategoriesByTypeUseCase,
+                    getActiveCurrencyFlowUseCase
                 ) as T
             }
             modelClass.isAssignableFrom(AddCategoryViewModel::class.java) -> {

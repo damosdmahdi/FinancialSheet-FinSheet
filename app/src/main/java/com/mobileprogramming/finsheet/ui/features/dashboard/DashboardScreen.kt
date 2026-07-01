@@ -54,9 +54,7 @@ import com.mobileprogramming.finsheet.ui.features.addtransaction.CategoryIconMap
 @Composable
 fun DashboardScreen(
     viewModel: DashboardViewModel = viewModel(
-        factory = DashboardViewModelFactory(
-            Injection.provideGetDashboardDataUseCase(LocalContext.current.applicationContext)
-        )
+        factory = Injection.provideDashboardViewModelFactory(LocalContext.current.applicationContext)
     ),
     onNavigateToAddTransaction: () -> Unit,
     onNavigateToHistory: () -> Unit,

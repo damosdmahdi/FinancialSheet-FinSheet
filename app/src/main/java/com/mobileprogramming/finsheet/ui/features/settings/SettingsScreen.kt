@@ -28,6 +28,9 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.google.firebase.auth.FirebaseAuth
 import com.mobileprogramming.finsheet.ui.features.auth.GoogleAuthClient
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.mobileprogramming.finsheet.di.Injection
+import com.mobileprogramming.finsheet.data.local.entity.CurrencyEntity
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -48,6 +51,15 @@ fun SettingsScreen(
     val auth = FirebaseAuth.getInstance()
     var currentUser by remember { mutableStateOf(auth.currentUser) }
     val googleAuthClient = remember { GoogleAuthClient(context, auth) }
+
+    val settingsViewModel: SettingsViewModel = viewModel(
+        factory = Injection.provideSettingsViewModelFactory(context)
+    )
+    val activeCurrency by settingsViewModel.activeCurrency.collectAsState()
+    val currencies by settingsViewModel.currencies.collectAsState()
+    val isSyncing by settingsViewModel.isSyncing.collectAsState()
+
+    var showCurrencyDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         bottomBar = {
@@ -224,7 +236,6 @@ fun SettingsScreen(
                 }
             }
             
-            // Standard Cards
             SettingsItemCard(
                 icon = Icons.Outlined.TableView,
                 title = "Pilih Google Sheet",
@@ -237,6 +248,61 @@ fun SettingsScreen(
                     )
                 }
             )
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                ),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.surfaceVariant),
+                onClick = { showCurrencyDialog = true }
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = activeCurrency?.symbol ?: "Rp",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Mata Uang",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Text(
+                            text = activeCurrency?.name ?: "Indonesian Rupiah",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    if (isSyncing) {
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                    } else {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
 
             SettingsItemCard(
                 icon = Icons.Outlined.Notifications,
@@ -314,6 +380,55 @@ fun SettingsScreen(
                         onClick = { showLogoutDialog = false }
                     ) {
                         Text(text = "Batal", color = MaterialTheme.colorScheme.primary)
+                    }
+                }
+            )
+        }
+
+        if (showCurrencyDialog) {
+            AlertDialog(
+                onDismissRequest = { showCurrencyDialog = false },
+                title = { Text(text = "Pilih Mata Uang") },
+                text = {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().height(300.dp).verticalScroll(rememberScrollState())
+                    ) {
+                        currencies.forEach { currency ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 12.dp)
+                                    .background(
+                                        color = if (currency.code == activeCurrency?.code) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+                                        shape = RoundedCornerShape(8.dp)
+                                    ),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                TextButton(
+                                    onClick = {
+                                        settingsViewModel.setPreferredCurrency(currency.code)
+                                        showCurrencyDialog = false
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(
+                                        text = "${currency.code} - ${currency.name}",
+                                        color = if (currency.code == activeCurrency?.code) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    Text(
+                                        text = currency.symbol,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { showCurrencyDialog = false }) {
+                        Text(text = "Tutup")
                     }
                 }
             )
