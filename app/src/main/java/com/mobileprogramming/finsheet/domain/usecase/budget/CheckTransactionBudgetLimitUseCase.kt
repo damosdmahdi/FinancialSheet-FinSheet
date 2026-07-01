@@ -112,7 +112,7 @@ class CheckTransactionBudgetLimitUseCase(
             }
         }.sumOf { it.amount }
         val globalSpentWithNew = globalExpensesThisMonth + amount
-        if (globalSpentWithNew > globalMonthlyLimit) {
+        if (globalMonthlyLimit > 0 && globalSpentWithNew > globalMonthlyLimit) {
             results.add(
                 BudgetCheckResult(
                     type = BudgetExceedType.GLOBAL_MONTHLY,

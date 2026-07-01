@@ -90,44 +90,7 @@ abstract class AppDatabase : RoomDatabase() {
             )
             categoryDao.insertAllCategories(categories)
 
-            // 2. Buat Budget Default untuk Makanan
-            val budget = BudgetEntity(
-                id = "budget-food",
-                categoryId = catIdFood,
-                budgetName = "Budget Makan Bulanan",
-                amountLimit = 750000,
-                startDate = 6, // Juni
-                endDate = 2026
-            )
-            budgetDao.insertBudget(budget)
-
-            // 3. Buat Transaksi Contoh
-            val time = System.currentTimeMillis()
-            val transactions = listOf(
-                // Pemasukan
-                TransactionEntity(
-                    id = UUID.randomUUID().toString(), categoryId = catIdSalary, amount = 5000000,
-                    transactionType = "INCOME", notes = "Gaji bulan ini", transactionDate = time
-                ),
-                // Pengeluaran
-                TransactionEntity(
-                    id = UUID.randomUUID().toString(), categoryId = catIdFood, amount = 50000,
-                    transactionType = "EXPENSE", notes = "Makan siang", transactionDate = time
-                ),
-                TransactionEntity(
-                    id = UUID.randomUUID().toString(), categoryId = catIdFood, amount = 125000,
-                    transactionType = "EXPENSE", notes = "Belanja mingguan", transactionDate = time
-                ),
-                TransactionEntity(
-                    id = UUID.randomUUID().toString(), categoryId = catIdTransport, amount = 75000,
-                    transactionType = "EXPENSE", notes = "Isi bensin", transactionDate = time
-                ),
-                TransactionEntity(
-                    id = UUID.randomUUID().toString(), categoryId = catIdEdu, amount = 250000,
-                    transactionType = "EXPENSE", notes = "Beli buku", transactionDate = time
-                )
-            )
-            transactionDao.insertAllTransactions(transactions)
+            // Removed dummy budget and transactions for a clean zero state for new users
         }
     }
 

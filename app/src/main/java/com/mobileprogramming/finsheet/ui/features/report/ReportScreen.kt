@@ -76,12 +76,7 @@ fun ReportScreen(
                 )
             }
 
-            val mockReportItems = listOf(
-                Pair("Makanan", "Rp 850.000"),
-                Pair("Transportasi", "Rp 300.000"),
-                Pair("Hiburan", "Rp 200.000"),
-                Pair("Lainnya", "Rp 100.000")
-            )
+            val mockReportItems = emptyList<Pair<String, String>>()
 
             items(mockReportItems.size) { index ->
                 val (category, amount) = mockReportItems[index]
