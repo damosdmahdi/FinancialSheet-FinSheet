@@ -9,10 +9,12 @@ import com.mobileprogramming.finsheet.data.local.dao.BudgetDao
 import com.mobileprogramming.finsheet.data.local.dao.CategoryDao
 import com.mobileprogramming.finsheet.data.local.dao.TransactionDao
 import com.mobileprogramming.finsheet.data.local.dao.UserDao
+import com.mobileprogramming.finsheet.data.local.dao.CurrencyDao
 import com.mobileprogramming.finsheet.data.local.entity.BudgetEntity
 import com.mobileprogramming.finsheet.data.local.entity.CategoryEntity
 import com.mobileprogramming.finsheet.data.local.entity.TransactionEntity
 import com.mobileprogramming.finsheet.data.local.entity.UserEntity
+import com.mobileprogramming.finsheet.data.local.entity.CurrencyEntity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -23,9 +25,10 @@ import java.util.UUID
         UserEntity::class, 
         CategoryEntity::class, 
         TransactionEntity::class, 
-        BudgetEntity::class
+        BudgetEntity::class,
+        CurrencyEntity::class
     ], 
-    version = 1, 
+    version = 2, 
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -34,6 +37,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun categoryDao(): CategoryDao
     abstract fun budgetDao(): BudgetDao
     abstract fun userDao(): UserDao
+    abstract fun currencyDao(): CurrencyDao
 
     private class AppDatabaseCallback(
         private val scope: CoroutineScope
@@ -47,7 +51,8 @@ abstract class AppDatabase : RoomDatabase() {
                     populateDatabase(
                         database.categoryDao(),
                         database.budgetDao(),
-                        database.transactionDao()
+                        database.transactionDao(),
+                        database.currencyDao()
                     )
                 }
             }
@@ -56,7 +61,8 @@ abstract class AppDatabase : RoomDatabase() {
         suspend fun populateDatabase(
             categoryDao: CategoryDao,
             budgetDao: BudgetDao,
-            transactionDao: TransactionDao
+            transactionDao: TransactionDao,
+            currencyDao: CurrencyDao
         ) {
             // 1. Buat Kategori Default
             val catIdFood = "cat-food"
