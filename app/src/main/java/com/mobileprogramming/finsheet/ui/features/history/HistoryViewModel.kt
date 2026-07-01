@@ -14,6 +14,7 @@ import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import com.mobileprogramming.finsheet.domain.usecase.transaction.SyncTransactionsUseCase
 
 data class HistoryUiState(
     val transactions: List<TransactionGroupUI> = emptyList(),
@@ -41,7 +42,8 @@ data class TransactionItemUI(
 enum class TransactionFilter { SEMUA, PENGELUARAN, PEMASUKAN }
 
 class HistoryViewModel(
-    private val getAllTransactionsUseCase: GetAllTransactionsUseCase
+    private val getAllTransactionsUseCase: GetAllTransactionsUseCase,
+    private val syncTransactionsUseCase: SyncTransactionsUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HistoryUiState())
@@ -131,6 +133,13 @@ class HistoryViewModel(
                 val sdf = SimpleDateFormat("d MMM yyyy", Locale.forLanguageTag("id-ID"))
                 sdf.format(Date(millis))
             }
+        }
+    }
+
+    fun syncToGoogleSheets(email: String, onComplete: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            val success = syncTransactionsUseCase(email)
+            onComplete(success)
         }
     }
 }

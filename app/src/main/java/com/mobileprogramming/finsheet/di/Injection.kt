@@ -81,32 +81,17 @@ object Injection {
         )
     }
 
-    fun provideBudgetViewModelFactory(context: Context): BudgetViewModelFactory {
-        return BudgetViewModelFactory(
-            provideGetBudgetScreenDataUseCase(context),
-            provideSaveCategoryBudgetsUseCase(context),
-            provideDeleteBudgetUseCase(context),
-            provideSharedPreferences(context)
+    fun provideSyncTransactionsUseCase(context: Context): com.mobileprogramming.finsheet.domain.usecase.transaction.SyncTransactionsUseCase {
+        val db = provideDatabase(context)
+        val sheetsRepo = com.mobileprogramming.finsheet.data.remote.GoogleSheetsRepository(context)
+        val authClient = com.mobileprogramming.finsheet.ui.features.auth.GoogleAuthClient(
+            context = context,
+            auth = com.google.firebase.auth.FirebaseAuth.getInstance()
         )
-    }
-
-    fun provideAddBudgetViewModelFactory(context: Context): AddBudgetViewModelFactory {
-        return AddBudgetViewModelFactory(
-            provideCategoryRepository(context),
-            provideSaveCategoryBudgetsUseCase(context)
-        )
-    }
-
-    fun provideSettingsViewModelFactory(context: Context): SettingsViewModelFactory {
-        return SettingsViewModelFactory(
-            provideSharedPreferences(context)
-        )
-    }
-
-    fun provideCheckTransactionBudgetLimitUseCase(context: Context): com.mobileprogramming.finsheet.domain.usecase.budget.CheckTransactionBudgetLimitUseCase {
-        return com.mobileprogramming.finsheet.domain.usecase.budget.CheckTransactionBudgetLimitUseCase(
-            provideBudgetRepository(context),
-            provideTransactionRepository(context)
+        return com.mobileprogramming.finsheet.domain.usecase.transaction.SyncTransactionsUseCase(
+            transactionDao = db.transactionDao(),
+            sheetsRepository = sheetsRepo,
+            authClient = authClient
         )
     }
 

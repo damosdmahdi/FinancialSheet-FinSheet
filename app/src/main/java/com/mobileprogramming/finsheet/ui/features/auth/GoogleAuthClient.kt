@@ -94,6 +94,7 @@ class GoogleAuthClient(
 
     fun signOut() {
         auth.signOut()
+        com.mobileprogramming.finsheet.data.remote.GoogleSheetsRepository(context).clearSpreadsheetId()
     }
 
     suspend fun signInAsGuest(): AuthResult? {
@@ -101,6 +102,19 @@ class GoogleAuthClient(
             auth.signInAnonymously().await()
         } catch (e: Exception) {
             Log.e("GoogleAuthClient", "Guest sign-in failed", e)
+            null
+        }
+    }
+
+    suspend fun getAccessToken(email: String): String? = withContext(Dispatchers.IO) {
+        try {
+            val account = android.accounts.Account(email, "com.google")
+            val scopes = "oauth2:https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/spreadsheets"
+            com.google.android.gms.auth.GoogleAuthUtil.getToken(context, account, scopes)
+        } catch (e: com.google.android.gms.auth.UserRecoverableAuthException) {
+            throw e
+        } catch (e: Exception) {
+            Log.e("GoogleAuthClient", "Error getting access token", e)
             null
         }
     }

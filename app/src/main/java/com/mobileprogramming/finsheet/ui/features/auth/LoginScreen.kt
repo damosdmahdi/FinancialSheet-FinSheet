@@ -1,5 +1,6 @@
 package com.mobileprogramming.finsheet.ui.features.auth
 
+import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
@@ -29,6 +30,44 @@ fun LoginScreen(
             context = context,
             auth = FirebaseAuth.getInstance()
         )
+    }
+
+    val launcher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()
+    ) { activityResult ->
+        if (activityResult.resultCode == android.app.Activity.RESULT_OK) {
+            coroutineScope.launch {
+                isLoading = true
+                val email = FirebaseAuth.getInstance().currentUser?.email
+                if (email != null) {
+                    try {
+                        val token = authClient.getAccessToken(email)
+                        if (token != null) {
+                            val sheetsRepo = com.mobileprogramming.finsheet.data.remote.GoogleSheetsRepository(context)
+                            val (id, isNew) = sheetsRepo.ensureSpreadsheetExists(token)
+                            if (id != null) {
+                                val message = if (isNew) "Spreadsheet baru berhasil dibuat!" else "Spreadsheet lama berhasil dihubungkan!"
+                                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                            } else {
+                                Toast.makeText(context, "Gagal! Pastikan API Google Sheets & Drive AKTIF di Cloud Console.", Toast.LENGTH_LONG).show()
+                            }
+                        }
+                    } catch (e: Exception) {
+                        if (e.message == "DRIVE_API_DISABLED") {
+                            Toast.makeText(context, "GAGAL: Google Drive API belum diaktifkan di Cloud Console!", Toast.LENGTH_LONG).show()
+                        } else {
+                            Log.e("LoginScreen", "Error after permission granted", e)
+                        }
+                    }
+                }
+                isLoading = false
+                onNavigateToDashboard()
+            }
+        } else {
+            isLoading = false
+            Toast.makeText(context, "Izin Google Drive ditolak", Toast.LENGTH_SHORT).show()
+            onNavigateToDashboard()
+        }
     }
 
     Column(
@@ -63,18 +102,56 @@ fun LoginScreen(
         Spacer(modifier = Modifier.height(48.dp))
 
         if (isLoading) {
-            CircularProgressIndicator()
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                CircularProgressIndicator()
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(text = "Menyiapkan akun & Sinkronisasi...", fontSize = 14.sp)
+            }
         } else {
             Button(
                 onClick = {
                     coroutineScope.launch {
                         isLoading = true
                         val result = authClient.signIn()
-                        isLoading = false
                         if (result != null) {
-                            Toast.makeText(context, "Sign In Successful", Toast.LENGTH_SHORT).show()
-                            onNavigateToDashboard()
+                            val email = result.user?.email
+                            if (email != null) {
+                                try {
+                                    val token = authClient.getAccessToken(email)
+                                    if (token != null) {
+                                        val sheetsRepo = com.mobileprogramming.finsheet.data.remote.GoogleSheetsRepository(context)
+                                        val (id, isNew) = sheetsRepo.ensureSpreadsheetExists(token)
+                                        if (id != null) {
+                                            val message = if (isNew) "Spreadsheet baru berhasil dibuat!" else "Spreadsheet lama berhasil dihubungkan!"
+                                            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                                        } else {
+                                            Toast.makeText(context, "Gagal! Pastikan API Google Sheets & Drive AKTIF di Cloud Console.", Toast.LENGTH_LONG).show()
+                                        }
+                                    }
+                                    isLoading = false
+                                    onNavigateToDashboard()
+                                } catch (e: com.google.android.gms.auth.UserRecoverableAuthException) {
+                                    // Tampilkan persetujuan ke user
+                                    e.intent?.let { intent ->
+                                        launcher.launch(intent)
+                                    } ?: run {
+                                        isLoading = false
+                                        Toast.makeText(context, "Tidak dapat meminta izin", Toast.LENGTH_SHORT).show()
+                                        onNavigateToDashboard()
+                                    }
+                                } catch (e: Exception) {
+                                    isLoading = false
+                                    if (e.message == "DRIVE_API_DISABLED") {
+                                        Toast.makeText(context, "GAGAL: Google Drive API belum diaktifkan di Cloud Console!", Toast.LENGTH_LONG).show()
+                                    }
+                                    onNavigateToDashboard()
+                                }
+                            } else {
+                                isLoading = false
+                                onNavigateToDashboard()
+                            }
                         } else {
+                            isLoading = false
                             Toast.makeText(context, "Sign In Failed", Toast.LENGTH_SHORT).show()
                         }
                     }

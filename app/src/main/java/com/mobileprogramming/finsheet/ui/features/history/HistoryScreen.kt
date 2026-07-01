@@ -51,7 +51,8 @@ private fun formatDateMillis(millis: Long): String {
 fun HistoryScreen(
     viewModel: HistoryViewModel = viewModel(
         factory = HistoryViewModelFactory(
-            Injection.provideGetAllTransactionsUseCase(LocalContext.current.applicationContext)
+            Injection.provideGetAllTransactionsUseCase(LocalContext.current.applicationContext),
+            Injection.provideSyncTransactionsUseCase(LocalContext.current.applicationContext)
         )
     ),
     onNavigateBack: () -> Unit = {},
@@ -215,14 +216,27 @@ fun HistoryScreen(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     // [REVISI 2] Chip yang bisa diklik untuk sinkron manual
+                    val context = LocalContext.current
                     SyncStatusChip(
                         isSyncing = isSyncing,
                         primaryBlue = primaryBlue,
                         onClick   = {
                             if (!isSyncing) {
                                 isSyncing = true
-                                // TODO: panggil ViewModel.sync() di sini
-                                // Simulasi selesai sinkron setelah 2 detik
+                                val email = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.email
+                                if (email != null) {
+                                    viewModel.syncToGoogleSheets(email) { success ->
+                                        isSyncing = false
+                                        if (success) {
+                                            android.widget.Toast.makeText(context, "Berhasil Sinkron!", android.widget.Toast.LENGTH_SHORT).show()
+                                        } else {
+                                            android.widget.Toast.makeText(context, "Gagal Sinkron atau Tidak ada data baru", android.widget.Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+                                } else {
+                                    isSyncing = false
+                                    android.widget.Toast.makeText(context, "Harap login dengan Google", android.widget.Toast.LENGTH_SHORT).show()
+                                }
                             }
                         }
                     )
