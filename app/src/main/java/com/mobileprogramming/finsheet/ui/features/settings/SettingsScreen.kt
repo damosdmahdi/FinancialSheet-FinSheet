@@ -42,6 +42,7 @@ fun SettingsScreen(
     var notifikasiTagihan by remember { mutableStateOf(true) }
     var anggaranHarian by remember { mutableStateOf(true) }
     var anggaranMingguan by remember { mutableStateOf(true) }
+    var showLogoutDialog by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
     val auth = FirebaseAuth.getInstance()
@@ -176,9 +177,7 @@ fun SettingsScreen(
                     if (currentUser != null) {
                         Button(
                             onClick = {
-                                googleAuthClient.signOut()
-                                currentUser = null
-                                onNavigateToLogin()
+                                showLogoutDialog = true
                             },
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -287,6 +286,37 @@ fun SettingsScreen(
             )
             
             Spacer(modifier = Modifier.height(32.dp))
+        }
+
+        if (showLogoutDialog) {
+            AlertDialog(
+                onDismissRequest = { showLogoutDialog = false },
+                title = {
+                    Text(text = "Konfirmasi Keluar")
+                },
+                text = {
+                    Text(text = "Apakah Anda yakin ingin keluar dari akun ini?")
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            showLogoutDialog = false
+                            googleAuthClient.signOut()
+                            currentUser = null
+                            onNavigateToLogin()
+                        }
+                    ) {
+                        Text(text = "Ya, Keluar", color = MaterialTheme.colorScheme.error)
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = { showLogoutDialog = false }
+                    ) {
+                        Text(text = "Batal", color = MaterialTheme.colorScheme.primary)
+                    }
+                }
+            )
         }
     }
 }
