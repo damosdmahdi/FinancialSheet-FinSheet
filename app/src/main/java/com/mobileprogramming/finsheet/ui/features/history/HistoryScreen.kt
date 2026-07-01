@@ -27,19 +27,11 @@ import com.mobileprogramming.finsheet.ui.components.BottomNavigationBar
 import java.text.SimpleDateFormat
 import java.util.*
 
-// ---------------------------------------------------------------------------
-// Screen
-// ---------------------------------------------------------------------------
-
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mobileprogramming.finsheet.di.Injection
 import com.mobileprogramming.finsheet.ui.features.addtransaction.CategoryIconMapper
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 
 private fun formatDateMillis(millis: Long): String {
     val sdf = SimpleDateFormat("d MMM yyyy", Locale.forLanguageTag("id-ID"))
@@ -51,10 +43,12 @@ private fun formatDateMillis(millis: Long): String {
 fun HistoryScreen(
     viewModel: HistoryViewModel = viewModel(
         factory = Injection.provideHistoryViewModelFactory(LocalContext.current.applicationContext)
+        factory = Injection.provideHistoryViewModelFactory(LocalContext.current.applicationContext)
     ),
     onNavigateBack: () -> Unit = {},
     onNavigateToAddTransaction: () -> Unit = {},
     onNavigateToDashboard: () -> Unit = {},
+    onNavigateToTransaction: (String) -> Unit = {},
     onNavigateToTransaction: (String) -> Unit = {},
     onNavigateToAnggaran: () -> Unit = {},
     onNavigateToSettings: () -> Unit = {}
@@ -206,6 +200,7 @@ fun HistoryScreen(
                         ),
                         color = MaterialTheme.colorScheme.onSurface
                     )
+                    val context = LocalContext.current
                     SyncStatusChip(
                         isSyncing = isSyncing,
                         primaryBlue = primaryBlue,

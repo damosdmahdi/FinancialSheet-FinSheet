@@ -15,6 +15,11 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import com.mobileprogramming.finsheet.data.local.entity.TransactionEntity
+import android.content.Context
+import android.content.SharedPreferences
+import com.mobileprogramming.finsheet.domain.usecase.budget.CheckTransactionBudgetLimitUseCase
+import com.mobileprogramming.finsheet.domain.usecase.budget.BudgetExceedType
+import com.mobileprogramming.finsheet.core.utils.NotificationHelper
 import kotlin.math.roundToInt
 
 data class AddEditTransactionState(
@@ -37,7 +42,10 @@ class AddEditTransactionViewModel(
     private val updateTransactionUseCase: UpdateTransactionUseCase,
     private val getTransactionByIdUseCase: GetTransactionByIdUseCase,
     private val getCategoriesByTypeUseCase: GetCategoriesByTypeUseCase,
-    private val getActiveCurrencyFlowUseCase: GetActiveCurrencyFlowUseCase
+    private val getActiveCurrencyFlowUseCase: GetActiveCurrencyFlowUseCase,
+    private val checkTransactionBudgetLimitUseCase: CheckTransactionBudgetLimitUseCase,
+    private val sharedPreferences: SharedPreferences,
+    private val context: Context
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(AddEditTransactionState())
