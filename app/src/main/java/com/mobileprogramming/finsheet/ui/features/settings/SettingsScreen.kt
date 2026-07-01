@@ -43,6 +43,7 @@ import androidx.core.content.ContextCompat
 import android.Manifest
 import android.content.pm.PackageManager
 import java.io.File
+import coil.compose.AsyncImage
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -406,7 +407,14 @@ fun SettingsScreen(
                                     .clickable { showPhotoSourceDialog = true },
                                 contentAlignment = Alignment.Center
                             ) {
-                                if (profileBitmap != null) {
+                                if (uiState.userPhotoUrl != null) {
+                                    AsyncImage(
+                                        model = uiState.userPhotoUrl,
+                                        contentDescription = "Foto Profil",
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                } else if (profileBitmap != null) {
                                     Image(
                                         bitmap = profileBitmap,
                                         contentDescription = "Foto Profil",

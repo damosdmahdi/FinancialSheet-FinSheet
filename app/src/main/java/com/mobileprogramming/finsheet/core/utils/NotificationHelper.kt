@@ -29,8 +29,22 @@ object NotificationHelper {
             notificationManager.createNotificationChannel(channel)
         }
 
+        val largeIconBitmap = try {
+            android.graphics.BitmapFactory.decodeResource(
+                context.resources,
+                com.mobileprogramming.finsheet.R.drawable.logo_finsheet
+            )
+        } catch (e: Exception) {
+            null
+        }
+
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(com.mobileprogramming.finsheet.R.mipmap.ic_launcher)
+            .setSmallIcon(com.mobileprogramming.finsheet.R.drawable.ic_notification)
+            .apply {
+                if (largeIconBitmap != null) {
+                    setLargeIcon(largeIconBitmap)
+                }
+            }
             .setContentTitle(title)
             .setContentText(message)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
