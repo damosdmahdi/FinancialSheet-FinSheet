@@ -14,11 +14,35 @@
       },
       "oauth_client": [
         {
+          "client_id": "330018667208-bulqlehqltdeh5udeinvnq9inrkr81la.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.mobileprogramming.finsheet",
+            "certificate_hash": "3fbde8a8786ea47a956e4d6fc2ed2d5f4c24d2f5"
+          }
+        },
+        {
+          "client_id": "330018667208-c7sc65k1si4sstsdjbcfphaksnqi5uo4.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.mobileprogramming.finsheet",
+            "certificate_hash": "69076b8e866fc6222094da8d165926c92d0e333f"
+          }
+        },
+        {
           "client_id": "330018667208-iikfk81a7kj69hmpsudo99fc2m31994d.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.mobileprogramming.finsheet",
             "certificate_hash": "3f6bf89aa1247da3df6d78ea1b552cbcc3b41806"
+          }
+        },
+        {
+          "client_id": "330018667208-l7ldfrlp54r5ic1c7c5ppf5fpkloaiir.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.mobileprogramming.finsheet",
+            "certificate_hash": "525654b6e2e3a8b5dc40cd9dc81a0afa48708ec1"
           }
         },
         {
