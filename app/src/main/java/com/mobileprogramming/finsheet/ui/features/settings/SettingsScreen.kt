@@ -551,7 +551,6 @@ fun SettingsScreen(
                 }
             }
             
-            // Standard Cards
             SettingsItemCard(
                 icon = Icons.Outlined.TableView,
                 title = "Pilih Google Sheet",

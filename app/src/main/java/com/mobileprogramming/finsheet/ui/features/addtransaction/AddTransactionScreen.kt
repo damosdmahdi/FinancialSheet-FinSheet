@@ -261,16 +261,9 @@ fun AddTransactionScreen(
             // 2. Amount Input Card
             // ----------------------------------------------------------------
             AmountInputCard(
-                currency = selectedCurrency,
+                activeCurrency = state.activeCurrency,
                 amountText = state.amount,
                 onAmountChange = { viewModel.onAmountChanged(it) },
-                dropdownExpanded = currencyDropdownExpanded,
-                onDropdownToggle = { currencyDropdownExpanded = !currencyDropdownExpanded },
-                onDropdownDismiss = { currencyDropdownExpanded = false },
-                onCurrencySelected = {
-                    selectedCurrency = it
-                    currencyDropdownExpanded = false
-                },
                 primaryBlue = primaryBlue
             )
 
@@ -622,16 +615,22 @@ private fun SegmentedTypeToggle(
 
 @Composable
 private fun AmountInputCard(
-    currency: String,
+    activeCurrency: com.mobileprogramming.finsheet.data.local.entity.CurrencyEntity?,
     amountText: String,
     onAmountChange: (String) -> Unit,
-    dropdownExpanded: Boolean,
-    onDropdownToggle: () -> Unit,
-    onDropdownDismiss: () -> Unit,
-    onCurrencySelected: (String) -> Unit,
     primaryBlue: Color
 ) {
-    val currencies = listOf("USD", "IDR", "EUR", "SGD", "JPY")
+    val currencyCode = activeCurrency?.code ?: "IDR"
+    val rate = activeCurrency?.rateToIdr ?: 1.0
+    val symbol = activeCurrency?.symbol ?: "Rp"
+    
+    // Calculate IDR preview
+    val amountVal = amountText.toDoubleOrNull() ?: 0.0
+    val idrVal = (amountVal / rate)
+    
+    val format = java.text.NumberFormat.getCurrencyInstance(java.util.Locale("id", "ID"))
+    format.maximumFractionDigits = 0
+    val idrPreview = format.format(idrVal).replace("Rp", "Rp ")
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -650,7 +649,7 @@ private fun AmountInputCard(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Currency Dropdown
+                // Currency Code Box
                 Box {
                     Row(
                         modifier = Modifier
@@ -661,35 +660,17 @@ private fun AmountInputCard(
                                 color = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),
                                 shape = RoundedCornerShape(8.dp)
                             )
-                            .clickable { onDropdownToggle() }
                             .padding(horizontal = 10.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Text(
-                            text = currency,
+                            text = currencyCode,
                             style = MaterialTheme.typography.labelLarge.copy(
                                 fontWeight = FontWeight.Bold
                             ),
                             color = MaterialTheme.colorScheme.onSurface
                         )
-                        Icon(
-                            imageVector = Icons.Filled.KeyboardArrowDown,
-                            contentDescription = "Pilih Mata Uang",
-                            modifier = Modifier.size(16.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    DropdownMenu(
-                        expanded = dropdownExpanded,
-                        onDismissRequest = onDropdownDismiss
-                    ) {
-                        currencies.forEach { cur ->
-                            DropdownMenuItem(
-                                text = { Text(cur) },
-                                onClick = { onCurrencySelected(cur) }
-                            )
-                        }
                     }
                 }
 
@@ -713,7 +694,7 @@ private fun AmountInputCard(
 
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "≈ Rp241.800",
+                text = "≈ $idrPreview",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

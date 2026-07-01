@@ -6,6 +6,11 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
+import com.mobileprogramming.finsheet.data.local.entity.CurrencyEntity
+import com.mobileprogramming.finsheet.domain.usecase.currency.GetActiveCurrencyUseCase
+import com.mobileprogramming.finsheet.domain.usecase.currency.GetAllCurrenciesUseCase
+import com.mobileprogramming.finsheet.domain.usecase.currency.SetPreferredCurrencyUseCase
+import com.mobileprogramming.finsheet.domain.usecase.currency.SyncCurrenciesUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -25,12 +30,26 @@ data class SettingsUiState(
 )
 
 class SettingsViewModel(
-    private val sharedPreferences: SharedPreferences
+    private val sharedPreferences: SharedPreferences,
+    private val getActiveCurrencyUseCase: GetActiveCurrencyUseCase,
+    private val getAllCurrenciesUseCase: GetAllCurrenciesUseCase,
+    private val setPreferredCurrencyUseCase: SetPreferredCurrencyUseCase,
+    private val syncCurrenciesUseCase: SyncCurrenciesUseCase
 ) : ViewModel() {
 
     private val auth = FirebaseAuth.getInstance()
+    
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
+
+    private val _activeCurrency = MutableStateFlow<CurrencyEntity?>(null)
+    val activeCurrency: StateFlow<CurrencyEntity?> = _activeCurrency.asStateFlow()
+
+    private val _currencies = MutableStateFlow<List<CurrencyEntity>>(emptyList())
+    val currencies: StateFlow<List<CurrencyEntity>> = _currencies.asStateFlow()
+    
+    private val _isSyncing = MutableStateFlow(false)
+    val isSyncing: StateFlow<Boolean> = _isSyncing.asStateFlow()
 
     private val authStateListener = FirebaseAuth.AuthStateListener { firebaseAuth ->
         val user = firebaseAuth.currentUser
@@ -40,6 +59,8 @@ class SettingsViewModel(
     init {
         auth.addAuthStateListener(authStateListener)
         loadPreferences()
+        fetchActiveCurrency()
+        observeCurrencies()
     }
 
     private fun loadPreferences() {
@@ -119,6 +140,39 @@ class SettingsViewModel(
         }
     }
 
+    private fun fetchActiveCurrency() {
+        viewModelScope.launch {
+            _activeCurrency.value = getActiveCurrencyUseCase()
+        }
+    }
+
+    private fun observeCurrencies() {
+        viewModelScope.launch {
+            getAllCurrenciesUseCase().collect { list ->
+                _currencies.value = list
+                if (list.isEmpty() && !_isSyncing.value) {
+                    syncCurrencies()
+                }
+            }
+        }
+    }
+
+    fun syncCurrencies() {
+        viewModelScope.launch {
+            _isSyncing.value = true
+            syncCurrenciesUseCase()
+            fetchActiveCurrency()
+            _isSyncing.value = false
+        }
+    }
+
+    fun setPreferredCurrency(code: String) {
+        viewModelScope.launch {
+            setPreferredCurrencyUseCase(code)
+            fetchActiveCurrency()
+        }
+    }
+
     fun signOut() {
         auth.signOut()
     }
@@ -130,12 +184,23 @@ class SettingsViewModel(
 }
 
 class SettingsViewModelFactory(
-    private val sharedPreferences: SharedPreferences
+    private val sharedPreferences: SharedPreferences,
+    private val getActiveCurrencyUseCase: GetActiveCurrencyUseCase,
+    private val getAllCurrenciesUseCase: GetAllCurrenciesUseCase,
+    private val setPreferredCurrencyUseCase: SetPreferredCurrencyUseCase,
+    private val syncCurrenciesUseCase: SyncCurrenciesUseCase
 ) : ViewModelProvider.Factory {
+    
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(SettingsViewModel::class.java)) {
-            return SettingsViewModel(sharedPreferences) as T
+            return SettingsViewModel(
+                sharedPreferences,
+                getActiveCurrencyUseCase,
+                getAllCurrenciesUseCase,
+                setPreferredCurrencyUseCase,
+                syncCurrenciesUseCase
+            ) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

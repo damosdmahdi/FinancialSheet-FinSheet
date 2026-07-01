@@ -7,6 +7,8 @@ import com.mobileprogramming.finsheet.domain.usecase.AddTransactionUseCase
 import com.mobileprogramming.finsheet.domain.usecase.GetCategoriesByTypeUseCase
 import com.mobileprogramming.finsheet.domain.usecase.GetTransactionByIdUseCase
 import com.mobileprogramming.finsheet.domain.usecase.UpdateTransactionUseCase
+import com.mobileprogramming.finsheet.domain.usecase.currency.GetActiveCurrencyFlowUseCase
+import com.mobileprogramming.finsheet.data.local.entity.CurrencyEntity
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -28,6 +30,7 @@ data class AddEditTransactionState(
     val date: Long = System.currentTimeMillis(),
     val categories: List<CategoryEntity> = emptyList(),
     val selectedCategory: CategoryEntity? = null,
+    val activeCurrency: CurrencyEntity? = null,
     val isSaving: Boolean = false,
     val saveSuccess: Boolean = false,
     val error: String? = null
@@ -50,6 +53,23 @@ class AddEditTransactionViewModel(
 
     init {
         loadCategories()
+        loadActiveCurrency()
+    }
+
+    private fun loadActiveCurrency() {
+        viewModelScope.launch {
+            getActiveCurrencyFlowUseCase().collect { currency ->
+                _state.update { it.copy(activeCurrency = currency) }
+                
+                // If editing and amount is empty (first load), set amount based on currency
+                if (existingTransaction != null && _state.value.amount.isEmpty()) {
+                    val rate = currency?.rateToIdr ?: 1.0
+                    val converted = existingTransaction!!.amount * rate
+                    val amountStr = if (converted % 1.0 == 0.0) converted.toInt().toString() else converted.toString()
+                    _state.update { it.copy(amount = amountStr) }
+                }
+            }
+        }
     }
 
     fun initForEdit(transactionId: String?) {
@@ -59,11 +79,15 @@ class AddEditTransactionViewModel(
             if (transaction != null) {
                 existingTransaction = transaction
                 _state.update {
+                    val rate = it.activeCurrency?.rateToIdr ?: 1.0
+                    val converted = transaction.amount * rate
+                    val amountStr = if (converted % 1.0 == 0.0) converted.toInt().toString() else converted.toString()
+                    
                     it.copy(
                         transactionId = transactionId,
                         isEditMode = true,
                         transactionType = transaction.transactionType,
-                        amount = transaction.amount.toString(),
+                        amount = amountStr,
                         notes = transaction.notes ?: "",
                         date = transaction.transactionDate
                     )
@@ -100,8 +124,8 @@ class AddEditTransactionViewModel(
     }
 
     fun onAmountChanged(amount: String) {
-        // Allow empty or numeric
-        if (amount.isEmpty() || amount.matches(Regex("^\\d+\$"))) {
+        // Allow empty or numeric with optional decimal
+        if (amount.isEmpty() || amount.matches(Regex("^\\d*\\.?\\d*\$"))) {
             _state.update { it.copy(amount = amount) }
         }
     }
@@ -122,11 +146,14 @@ class AddEditTransactionViewModel(
         viewModelScope.launch {
             _state.update { it.copy(isSaving = true, error = null) }
             
-            val amountInt = _state.value.amount.toIntOrNull()
-            if (amountInt == null || amountInt <= 0) {
+            val inputAmount = _state.value.amount.toDoubleOrNull()
+            if (inputAmount == null || inputAmount <= 0) {
                 _state.update { it.copy(isSaving = false, error = "Amount must be greater than 0") }
                 return@launch
             }
+            
+            val rate = _state.value.activeCurrency?.rateToIdr ?: 1.0
+            val amountInt = (inputAmount / rate).roundToInt()
 
             val categoryId = _state.value.selectedCategory?.id
 
