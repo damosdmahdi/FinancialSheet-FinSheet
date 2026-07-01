@@ -50,6 +50,20 @@ object Injection {
         )
     }
 
+    fun provideSyncTransactionsUseCase(context: Context): com.mobileprogramming.finsheet.domain.usecase.transaction.SyncTransactionsUseCase {
+        val db = provideDatabase(context)
+        val sheetsRepo = com.mobileprogramming.finsheet.data.remote.GoogleSheetsRepository(context)
+        val authClient = com.mobileprogramming.finsheet.ui.features.auth.GoogleAuthClient(
+            context = context,
+            auth = com.google.firebase.auth.FirebaseAuth.getInstance()
+        )
+        return com.mobileprogramming.finsheet.domain.usecase.transaction.SyncTransactionsUseCase(
+            transactionDao = db.transactionDao(),
+            sheetsRepository = sheetsRepo,
+            authClient = authClient
+        )
+    }
+
     fun provideTransactionViewModelFactory(context: Context): com.mobileprogramming.finsheet.ui.features.addtransaction.TransactionViewModelFactory {
         val transactionRepo = provideTransactionRepository(context)
         val categoryRepo = provideCategoryRepository(context)
