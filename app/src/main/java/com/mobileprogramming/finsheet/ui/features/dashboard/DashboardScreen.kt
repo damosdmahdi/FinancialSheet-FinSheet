@@ -49,6 +49,7 @@ import com.mobileprogramming.finsheet.ui.components.BottomNavigationBar
 import com.mobileprogramming.finsheet.ui.components.BudgetProgressItem
 import com.mobileprogramming.finsheet.ui.components.CategoryExpenseItem
 import com.mobileprogramming.finsheet.ui.components.FilterChipsRow
+import com.mobileprogramming.finsheet.ui.features.addtransaction.CategoryIconMapper
 
 @Composable
 fun DashboardScreen(
@@ -308,7 +309,7 @@ fun ExpenseCategoryCard(
 
             categories.forEach { category ->
                 CategoryExpenseItem(
-                    color = getCategoryColor(category.categoryType),
+                    color = CategoryIconMapper.getColorByHex(category.colorHex),
                     categoryName = category.categoryName,
                     percentage = category.percentage
                 )
@@ -351,13 +352,13 @@ fun MonthlyBudgetSection(budgets: List<BudgetProgressData>) {
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    val color = getCategoryColor(budget.categoryType)
-                    val iconColorParams = getCategoryIconColors(budget.categoryType)
+                    val color = CategoryIconMapper.getColorByHex(budget.colorHex)
+                    val bgColor = CategoryIconMapper.getBackgroundColorByHex(budget.colorHex)
 
                     BudgetProgressItem(
-                        icon = getCategoryIcon(budget.categoryType),
-                        iconBackgroundColor = iconColorParams.first,
-                        iconTintColor = iconColorParams.second,
+                        icon = CategoryIconMapper.getIconByName(budget.iconName),
+                        iconBackgroundColor = bgColor,
+                        iconTintColor = color,
                         budgetName = budget.budgetName,
                         percentage = budget.percentage,
                         progress = budget.progress,
@@ -372,35 +373,5 @@ fun MonthlyBudgetSection(budgets: List<BudgetProgressData>) {
         }
 
         Spacer(modifier = Modifier.height(16.dp))
-    }
-}
-
-@Composable
-private fun getCategoryColor(type: ExpenseCategoryType): Color {
-    return when (type) {
-        ExpenseCategoryType.FOOD -> MaterialTheme.colorScheme.primary
-        ExpenseCategoryType.TRANSPORTATION -> MaterialTheme.colorScheme.secondaryContainer
-        ExpenseCategoryType.EDUCATION -> MaterialTheme.colorScheme.tertiary
-        ExpenseCategoryType.OTHERS -> MaterialTheme.colorScheme.surfaceVariant
-    }
-}
-
-@Composable
-private fun getCategoryIconColors(type: ExpenseCategoryType): Pair<Color, Color> {
-    return when (type) {
-        ExpenseCategoryType.FOOD -> Pair(MaterialTheme.colorScheme.surfaceContainerHigh, MaterialTheme.colorScheme.primary)
-        ExpenseCategoryType.TRANSPORTATION -> Pair(MaterialTheme.colorScheme.surfaceContainerHigh, MaterialTheme.colorScheme.secondaryContainer)
-        ExpenseCategoryType.EDUCATION -> Pair(MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.1f), MaterialTheme.colorScheme.tertiaryContainer)
-        ExpenseCategoryType.OTHERS -> Pair(MaterialTheme.colorScheme.surfaceContainerHigh, MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}
-
-@Composable
-private fun getCategoryIcon(type: ExpenseCategoryType): ImageVector {
-    return when (type) {
-        ExpenseCategoryType.FOOD -> Icons.Filled.Restaurant
-        ExpenseCategoryType.TRANSPORTATION -> Icons.Filled.DirectionsTransit
-        ExpenseCategoryType.EDUCATION -> Icons.Filled.Book
-        ExpenseCategoryType.OTHERS -> Icons.Filled.Category
     }
 }

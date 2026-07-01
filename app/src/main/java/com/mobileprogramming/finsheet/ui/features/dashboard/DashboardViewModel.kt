@@ -40,9 +40,9 @@ class DashboardViewModel(
                                 (cat.totalAmount.toFloat() / dashboardData.expenseThisMonth * 100).toInt()
                             } else 0
                             
-                            val type = mapCategoryToType(cat.categoryId)
                             CategoryExpenseData(
-                                categoryType = type,
+                                iconName = cat.icon,
+                                colorHex = cat.color,
                                 categoryName = cat.categoryName,
                                 percentage = "$percent%"
                             )
@@ -54,11 +54,11 @@ class DashboardViewModel(
                                 budget.usedAmount.toFloat() / budget.limitAmount
                             } else 0f
                             
-                            val type = mapCategoryToType(budget.categoryId)
                             val remaining = budget.limitAmount - budget.usedAmount
                             
                             BudgetProgressData(
-                                categoryType = type,
+                                iconName = budget.icon,
+                                colorHex = budget.color,
                                 budgetName = budget.budgetName,
                                 percentage = "${(progress * 100).toInt()}%",
                                 progress = progress.coerceAtMost(1f),
@@ -81,14 +81,7 @@ class DashboardViewModel(
         }
     }
 
-    private fun mapCategoryToType(categoryId: String): ExpenseCategoryType {
-        return when (categoryId) {
-            "cat-food" -> ExpenseCategoryType.FOOD
-            "cat-transport" -> ExpenseCategoryType.TRANSPORTATION
-            "cat-edu" -> ExpenseCategoryType.EDUCATION
-            else -> ExpenseCategoryType.OTHERS
-        }
-    }
+
 
     fun setFilterIndex(index: Int) {
         _uiState.update { it.copy(selectedFilterIndex = index) }

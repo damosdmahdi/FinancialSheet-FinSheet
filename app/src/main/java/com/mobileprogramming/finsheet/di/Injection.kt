@@ -9,6 +9,7 @@ import com.mobileprogramming.finsheet.domain.repository.BudgetRepository
 import com.mobileprogramming.finsheet.domain.repository.CategoryRepository
 import com.mobileprogramming.finsheet.domain.repository.TransactionRepository
 import com.mobileprogramming.finsheet.domain.usecase.GetDashboardDataUseCase
+import com.mobileprogramming.finsheet.domain.usecase.transaction.GetAllTransactionsUseCase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 
@@ -39,6 +40,13 @@ object Injection {
             provideTransactionRepository(context),
             provideCategoryRepository(context),
             provideBudgetRepository(context)
+        )
+    }
+
+    fun provideGetAllTransactionsUseCase(context: Context): GetAllTransactionsUseCase {
+        return GetAllTransactionsUseCase(
+            provideTransactionRepository(context),
+            provideCategoryRepository(context)
         )
     }
 

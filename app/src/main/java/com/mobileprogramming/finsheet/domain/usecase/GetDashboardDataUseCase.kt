@@ -62,6 +62,8 @@ class GetDashboardDataUseCase(
                     CategoryExpenseModel(
                         categoryId = catId,
                         categoryName = category.categoryName,
+                        icon = category.icon,
+                        color = category.color,
                         totalAmount = amount
                     )
                 } else null
@@ -76,6 +78,8 @@ class GetDashboardDataUseCase(
                         budgetId = budget.id,
                         budgetName = budget.budgetName,
                         categoryId = budget.categoryId,
+                        icon = category.icon,
+                        color = category.color,
                         limitAmount = budget.amountLimit.toLong(),
                         usedAmount = usedAmount
                     )
