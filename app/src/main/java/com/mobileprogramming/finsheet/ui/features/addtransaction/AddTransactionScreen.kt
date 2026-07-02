@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -98,8 +99,26 @@ private fun createCameraUri(context: Context): Uri {
  * EXIF orientation diabaikan oleh BitmapFactory.
  */
 private fun decodeBitmapWithCorrectOrientation(context: Context, uri: Uri): Bitmap? {
+    val options = BitmapFactory.Options()
+    options.inJustDecodeBounds = true
+    context.contentResolver.openInputStream(uri)?.use { stream ->
+        BitmapFactory.decodeStream(stream, null, options)
+    }
+
+    // Downsample if image is too large (limit to max 1024x1024 to prevent OutOfMemoryError)
+    val maxDim = 1024
+    var scale = 1
+    if (options.outWidth > maxDim || options.outHeight > maxDim) {
+        val widthRatio = Math.round(options.outWidth.toFloat() / maxDim.toFloat())
+        val heightRatio = Math.round(options.outHeight.toFloat() / maxDim.toFloat())
+        scale = if (widthRatio < heightRatio) widthRatio else heightRatio
+    }
+
+    options.inJustDecodeBounds = false
+    options.inSampleSize = scale
+
     val originalBitmap = context.contentResolver.openInputStream(uri)?.use { stream ->
-        BitmapFactory.decodeStream(stream)
+        BitmapFactory.decodeStream(stream, null, options)
     } ?: return null
 
     val exifOrientation = context.contentResolver.openInputStream(uri)?.use { stream ->
@@ -167,19 +186,30 @@ fun AddTransactionScreen(
 
     // Image state
     val context = LocalContext.current
-    var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
+    
+    // Gunakan URI dari state ViewModel, agar tersimpan ke database!
+    val selectedImageUri = state.receiptLocalPath?.let { Uri.parse(it) }
     var showImageSourceDialog by remember { mutableStateOf(false) }
 
-    // URI sementara untuk foto kamera
-    val cameraImageUri = remember {
-        createCameraUri(context)
+    // URI sementara untuk foto kamera (Gunakan rememberSaveable agar tidak hilang saat activity mati)
+    var cameraImageUriString by rememberSaveable { mutableStateOf<String?>(null) }
+    val cameraImageUri = remember(cameraImageUriString) {
+        if (cameraImageUriString != null) {
+            Uri.parse(cameraImageUriString)
+        } else {
+            createCameraUri(context).also {
+                cameraImageUriString = it.toString()
+            }
+        }
     }
 
     // Launcher kamera — TakePicture mengembalikan Boolean (berhasil/tidak)
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicture()
     ) { success ->
-        if (success) selectedImageUri = cameraImageUri
+        if (success) {
+            viewModel.onImageSelected(cameraImageUri.toString())
+        }
     }
 
     // Launcher permintaan izin CAMERA (runtime permission)
@@ -196,7 +226,9 @@ fun AddTransactionScreen(
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri ->
-        if (uri != null) selectedImageUri = uri
+        if (uri != null) {
+            viewModel.onImageSelected(uri.toString())
+        }
     }
 
     // Helper: buka kamera dengan cek permission terlebih dahulu
@@ -497,7 +529,7 @@ fun AddTransactionScreen(
                     }
                     // Tombol hapus foto
                     IconButton(
-                        onClick = { selectedImageUri = null },
+                        onClick = { viewModel.onImageSelected(null) },
                         modifier = Modifier
                             .align(Alignment.TopEnd)
                             .padding(6.dp)

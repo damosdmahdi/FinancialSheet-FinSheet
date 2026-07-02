@@ -12,7 +12,8 @@ class AddTransactionUseCase(
         amount: Int,
         transactionType: String,
         notes: String?,
-        transactionDate: Long
+        transactionDate: Long,
+        receiptLocalPath: String?
     ) {
         val transaction = TransactionEntity(
             id = UUID.randomUUID().toString(),
@@ -20,7 +21,8 @@ class AddTransactionUseCase(
             amount = amount,
             transactionType = transactionType,
             notes = notes,
-            transactionDate = transactionDate
+            transactionDate = transactionDate,
+            receiptLocalPath = receiptLocalPath
         )
         transactionRepository.insertTransaction(transaction)
     }

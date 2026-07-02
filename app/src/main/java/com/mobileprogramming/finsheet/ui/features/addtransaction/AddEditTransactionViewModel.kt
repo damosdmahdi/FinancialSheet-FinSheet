@@ -29,6 +29,7 @@ data class AddEditTransactionState(
     val amount: String = "",
     val notes: String = "",
     val date: Long = System.currentTimeMillis(),
+    val receiptLocalPath: String? = null,
     val categories: List<CategoryEntity> = emptyList(),
     val selectedCategory: CategoryEntity? = null,
     val activeCurrency: CurrencyEntity? = null,
@@ -91,7 +92,8 @@ class AddEditTransactionViewModel(
                         transactionType = transaction.transactionType,
                         amount = amountStr,
                         notes = transaction.notes ?: "",
-                        date = transaction.transactionDate
+                        date = transaction.transactionDate,
+                        receiptLocalPath = transaction.receiptLocalPath
                     )
                 }
                 loadCategories() // Reload categories based on the transaction's type
@@ -144,6 +146,10 @@ class AddEditTransactionViewModel(
         _state.update { it.copy(selectedCategory = category) }
     }
 
+    fun onImageSelected(uri: String?) {
+        _state.update { it.copy(receiptLocalPath = uri) }
+    }
+
     fun saveTransaction() {
         viewModelScope.launch {
             _state.update { it.copy(isSaving = true, error = null) }
@@ -167,7 +173,8 @@ class AddEditTransactionViewModel(
                         amount = amountInt,
                         transactionType = _state.value.transactionType,
                         notes = _state.value.notes.takeIf { it.isNotBlank() },
-                        transactionDate = _state.value.date
+                        transactionDate = _state.value.date,
+                        receiptLocalPath = _state.value.receiptLocalPath
                     )
                 } else {
                     addTransactionUseCase(
@@ -175,7 +182,8 @@ class AddEditTransactionViewModel(
                         amount = amountInt,
                         transactionType = _state.value.transactionType,
                         notes = _state.value.notes.takeIf { it.isNotBlank() },
-                        transactionDate = _state.value.date
+                        transactionDate = _state.value.date,
+                        receiptLocalPath = _state.value.receiptLocalPath
                     )
                 }
                 
