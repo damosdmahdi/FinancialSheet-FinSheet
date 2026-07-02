@@ -15,7 +15,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import com.mobileprogramming.finsheet.data.local.entity.TransactionEntity
-import kotlin.math.roundToInt
 
 data class AddEditTransactionState(
     val transactionId: String? = null,
@@ -153,7 +152,7 @@ class AddEditTransactionViewModel(
             }
             
             val rate = _state.value.activeCurrency?.rateToIdr ?: 1.0
-            val amountInt = (inputAmount / rate).roundToInt()
+            val amountVal = inputAmount / rate
 
             val categoryId = _state.value.selectedCategory?.id
 
@@ -162,7 +161,7 @@ class AddEditTransactionViewModel(
                     updateTransactionUseCase(
                         existingTransaction = existingTransaction!!,
                         categoryId = categoryId,
-                        amount = amountInt,
+                        amount = amountVal,
                         transactionType = _state.value.transactionType,
                         notes = _state.value.notes.takeIf { it.isNotBlank() },
                         transactionDate = _state.value.date,
@@ -171,7 +170,7 @@ class AddEditTransactionViewModel(
                 } else {
                     addTransactionUseCase(
                         categoryId = categoryId,
-                        amount = amountInt,
+                        amount = amountVal,
                         transactionType = _state.value.transactionType,
                         notes = _state.value.notes.takeIf { it.isNotBlank() },
                         transactionDate = _state.value.date,
