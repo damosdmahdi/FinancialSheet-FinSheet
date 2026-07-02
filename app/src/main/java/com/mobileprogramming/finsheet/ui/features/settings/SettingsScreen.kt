@@ -26,6 +26,11 @@ import androidx.compose.foundation.Image
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.outlined.Email
+import androidx.compose.material.icons.outlined.Share
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -516,6 +521,42 @@ fun SettingsScreen(
             }
 
 
+            // INTENT IMPLEMENTATION
+            Text(
+                text = "DUKUNGAN",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 8.dp, top = 8.dp)
+            )
+
+            SettingsItemCard(
+                icon = Icons.Outlined.Email,
+                title = "Hubungi Kami",
+                subtitle = "Kirim pertanyaan atau masukan",
+                onClick = {
+                    val intent = Intent(Intent.ACTION_SENDTO).apply {
+                        data = Uri.parse("mailto:support@finsheet.com")
+                        putExtra(Intent.EXTRA_SUBJECT, "Masukan Aplikasi FinSheet")
+                    }
+                    context.startActivity(intent)
+                }
+            )
+
+            SettingsItemCard(
+                icon = Icons.Outlined.Share,
+                title = "Bagikan Aplikasi",
+                subtitle = "Ajak teman menggunakan FinSheet",
+                onClick = {
+                    val sendIntent = Intent().apply {
+                        action = Intent.ACTION_SEND
+                        putExtra(Intent.EXTRA_TEXT, "Ayo kelola keuanganmu dengan FinSheet! Unduh sekarang.")
+                        type = "text/plain"
+                    }
+                    val shareIntent = Intent.createChooser(sendIntent, "Bagikan lewat")
+                    context.startActivity(shareIntent)
+                }
+            )
+
             // NOTIFIKASI ANGGARAN
             Text(
                 text = "NOTIFIKASI ANGGARAN",
@@ -613,12 +654,18 @@ fun SettingsItemCard(
     icon: ImageVector,
     title: String,
     subtitle: String,
+    onClick: (() -> Unit)? = null,
     onClick: () -> Unit = {},
     trailing: @Composable (() -> Unit)? = null
 ) {
+    val cardModifier = if (onClick != null) {
+        Modifier.fillMaxWidth().clickable(onClick = onClick)
+    } else {
+        Modifier.fillMaxWidth()
+    }
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
+        modifier = cardModifier
+            
             .clickable { onClick() },
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
