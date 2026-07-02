@@ -23,6 +23,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import coil.compose.AsyncImage
+import java.io.File
 import com.mobileprogramming.finsheet.domain.usecase.transaction.SyncResult
 import com.mobileprogramming.finsheet.ui.components.BottomNavigationBar
 import java.text.SimpleDateFormat
@@ -78,10 +83,13 @@ fun HistoryScreen(
         }
     }
 
-    val primaryBlue   = Color(0xFF1A5BEB)
-    val incomeGreen   = Color(0xFF2DC653)
-    val expenseRed    = Color(0xFFE53935)
+    val primaryBlue   = MaterialTheme.colorScheme.primary
+    val incomeGreen   = Color(0xFF4CAF50)
+    val expenseRed    = Color(0xFFF44336)
     val segmentedBg   = MaterialTheme.colorScheme.surfaceContainerHigh
+    
+    var selectedImagePath by remember { mutableStateOf<String?>(null) }
+    var showFullImageDialog by remember { mutableStateOf(false) }
 
     if (showDatePicker) {
         DatePickerDialog(
@@ -316,12 +324,56 @@ fun HistoryScreen(
                             incomeGreen = incomeGreen,
                             expenseRed  = expenseRed,
                             onClick     = { onNavigateToTransaction(tx.id) },
+                            // onImageClick = { path ->
+                            //     selectedImagePath = path
+                            //     showFullImageDialog = true
+                            // },
                             modifier    = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
                         )
                     }
 
                     item(key = "spacer_${group.dateLabel}_$index") {
                         Spacer(modifier = Modifier.height(8.dp))
+                    }
+                }
+            }
+        }
+        
+        if (showFullImageDialog && selectedImagePath != null) {
+            Dialog(
+                onDismissRequest = { showFullImageDialog = false },
+                properties = DialogProperties(
+                    usePlatformDefaultWidth = false
+                )
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black)
+                        .clickable { showFullImageDialog = false },
+                    contentAlignment = Alignment.Center
+                ) {
+                    AsyncImage(
+                        model = File(selectedImagePath!!),
+                        contentDescription = "Foto Transaksi Fullscreen",
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                    IconButton(
+                        onClick = { showFullImageDialog = false },
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(16.dp)
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(Color.Black.copy(alpha = 0.6f))
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Close,
+                            contentDescription = "Tutup",
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp)
+                        )
                     }
                 }
             }
@@ -514,6 +566,7 @@ private fun TransactionRow(
     incomeGreen: Color,
     expenseRed: Color,
     onClick: () -> Unit,
+    // onImageClick: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val amountColor = if (item.isExpense) expenseRed else incomeGreen
@@ -561,6 +614,25 @@ private fun TransactionRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+
+        // if (item.receiptLocalPath != null) {
+        //     Box(
+        //         modifier = Modifier
+        //             .padding(end = 8.dp)
+        //             .size(36.dp)
+        //             .clip(RoundedCornerShape(8.dp))
+        //             .background(MaterialTheme.colorScheme.surfaceVariant)
+        //             .clickable { onImageClick(item.receiptLocalPath) },
+        //         contentAlignment = Alignment.Center
+        //     ) {
+        //         AsyncImage(
+        //             model = File(item.receiptLocalPath),
+        //             contentDescription = "Bukti Transaksi",
+        //             contentScale = ContentScale.Crop,
+        //             modifier = Modifier.fillMaxSize()
+        //         )
+        //     }
+        // }
 
         Text(
             text  = item.amount,
