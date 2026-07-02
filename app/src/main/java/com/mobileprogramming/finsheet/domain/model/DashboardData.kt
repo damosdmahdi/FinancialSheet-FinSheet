@@ -18,7 +18,7 @@ data class CategoryExpenseModel(
     val categoryName: String,
     val icon: String? = null,
     val color: String? = null,
-    val totalAmount: Long
+    val totalAmount: Double
 )
 
 data class BudgetProgressModel(
@@ -27,6 +27,6 @@ data class BudgetProgressModel(
     val categoryId: String,
     val icon: String? = null,
     val color: String? = null,
-    val limitAmount: Long,
-    val usedAmount: Long
+    val limitAmount: Double,
+    val usedAmount: Double
 )

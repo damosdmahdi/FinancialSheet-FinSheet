@@ -22,10 +22,11 @@ class GetDashboardDataUseCase(
             budgetRepository.getAllActiveBudgets()
         ) { transactions, categories, budgets ->
             
-            // 1. Kalkulasi Saldo dan Pengeluaran
-            var totalIncome = 0L
-            var totalExpense = 0L
-            var incomeThisMonth = 0L
+            // 1. Kalkulasi Saldo
+            var totalIncome = 0.0
+            var totalExpense = 0.0
+            var incomeThisMonth = 0.0
+            var expenseThisMonth = 0.0
             
             val calendar = Calendar.getInstance()
             val currentDayOfYear = calendar.get(Calendar.DAY_OF_YEAR)
@@ -35,7 +36,7 @@ class GetDashboardDataUseCase(
 
             val expensesByCategoryToday = mutableMapOf<String, Long>()
             val expensesByCategoryThisWeek = mutableMapOf<String, Long>()
-            val expensesByCategoryThisMonth = mutableMapOf<String, Long>()
+            val expensesByCategoryThisMonth = mutableMapOf<String, Double>()
             
             var totalExpenseToday = 0L
             var totalExpenseThisWeek = 0L
@@ -73,7 +74,7 @@ class GetDashboardDataUseCase(
                     if (isThisMonth) {
                         totalExpenseThisMonth += tx.amount
                         tx.categoryId?.let { id ->
-                            expensesByCategoryThisMonth[id] = (expensesByCategoryThisMonth[id] ?: 0L) + tx.amount
+                            expensesByCategoryThisMonth[id] = (expensesByCategoryThisMonth[id] ?: 0.0) + tx.amount
                         }
                     }
                 }
@@ -125,14 +126,14 @@ class GetDashboardDataUseCase(
             val budgetProgressModels = budgets.mapNotNull { budget ->
                 val category = categories.find { it.id == budget.categoryId }
                 if (category != null) {
-                    val usedAmount = expensesByCategoryThisMonth[budget.categoryId] ?: 0L
+                    val usedAmount = expensesByCategoryThisMonth[budget.categoryId] ?: 0.0
                     BudgetProgressModel(
                         budgetId = budget.id,
                         budgetName = budget.budgetName,
                         categoryId = budget.categoryId,
                         icon = category.icon,
                         color = category.color,
-                        limitAmount = budget.amountLimit.toLong(),
+                        limitAmount = budget.amountLimit.toDouble(),
                         usedAmount = usedAmount
                     )
                 } else null

@@ -7,7 +7,7 @@ data class TransactionItemModel(
     val categoryName: String,
     val iconName: String?,
     val colorHex: String?,
-    val amount: Int,
+    val amount: Double,
     val isExpense: Boolean,
     val transactionDate: Long
 )

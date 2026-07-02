@@ -191,4 +191,11 @@ object Injection {
             syncCurrenciesUseCase = SyncCurrenciesUseCase(repo)
         )
     }
+
+    fun provideBudgetViewModelFactory(context: Context): com.mobileprogramming.finsheet.ui.features.budget.BudgetViewModelFactory {
+        val repo = provideCurrencyRepository(context)
+        return com.mobileprogramming.finsheet.ui.features.budget.BudgetViewModelFactory(
+            getActiveCurrencyFlowUseCase = com.mobileprogramming.finsheet.domain.usecase.currency.GetActiveCurrencyFlowUseCase(repo)
+        )
+    }
 }
