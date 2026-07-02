@@ -23,16 +23,16 @@ class GetDashboardDataUseCase(
         ) { transactions, categories, budgets ->
             
             // 1. Kalkulasi Saldo
-            var totalIncome = 0L
-            var totalExpense = 0L
-            var incomeThisMonth = 0L
-            var expenseThisMonth = 0L
+            var totalIncome = 0.0
+            var totalExpense = 0.0
+            var incomeThisMonth = 0.0
+            var expenseThisMonth = 0.0
             
             val calendar = Calendar.getInstance()
             val currentMonth = calendar.get(Calendar.MONTH)
             val currentYear = calendar.get(Calendar.YEAR)
 
-            val expensesByCategory = mutableMapOf<String, Long>()
+            val expensesByCategory = mutableMapOf<String, Double>()
 
             for (tx in transactions) {
                 val txCalendar = Calendar.getInstance().apply { timeInMillis = tx.transactionDate }
@@ -47,7 +47,7 @@ class GetDashboardDataUseCase(
                     if (isThisMonth) {
                         expenseThisMonth += tx.amount
                         tx.categoryId?.let { id ->
-                            expensesByCategory[id] = (expensesByCategory[id] ?: 0L) + tx.amount
+                            expensesByCategory[id] = (expensesByCategory[id] ?: 0.0) + tx.amount
                         }
                     }
                 }
@@ -73,14 +73,14 @@ class GetDashboardDataUseCase(
             val budgetProgressModels = budgets.mapNotNull { budget ->
                 val category = categories.find { it.id == budget.categoryId }
                 if (category != null) {
-                    val usedAmount = expensesByCategory[budget.categoryId] ?: 0L
+                    val usedAmount = expensesByCategory[budget.categoryId] ?: 0.0
                     BudgetProgressModel(
                         budgetId = budget.id,
                         budgetName = budget.budgetName,
                         categoryId = budget.categoryId,
                         icon = category.icon,
                         color = category.color,
-                        limitAmount = budget.amountLimit.toLong(),
+                        limitAmount = budget.amountLimit.toDouble(),
                         usedAmount = usedAmount
                     )
                 } else null

@@ -59,8 +59,8 @@ class DashboardViewModel(
 
                     // Map Budget Progress
                     val budgets = dashboardData.monthlyBudgets.map { budget ->
-                        val progress = if (budget.limitAmount > 0) {
-                            budget.usedAmount.toFloat() / budget.limitAmount
+                        val progress = if (budget.limitAmount > 0.0) {
+                            (budget.usedAmount / budget.limitAmount).toFloat()
                         } else 0f
                         
                         val remaining = budget.limitAmount - budget.usedAmount
@@ -73,7 +73,7 @@ class DashboardViewModel(
                             progress = progress.coerceAtMost(1f),
                             usedAmountStr = customFormat(budget.usedAmount * rate),
                             totalAmountStr = customFormat(budget.limitAmount * rate),
-                            remainingAmountStr = customFormat(remaining.coerceAtLeast(0) * rate)
+                            remainingAmountStr = customFormat(remaining.coerceAtLeast(0.0) * rate)
                         )
                     }
 

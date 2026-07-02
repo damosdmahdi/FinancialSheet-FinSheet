@@ -15,6 +15,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -104,8 +105,11 @@ class RupiahVisualTransformation : VisualTransformation {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddBudgetScreen(
+    viewModel: BudgetViewModel,
     onNavigateBack: () -> Unit
 ) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val symbol = uiState.activeCurrency?.symbol ?: "Rp"
     var selectedCategory by remember { mutableStateOf<String?>(null) }
     var amountState by remember { mutableStateOf(TextFieldValue("")) }
     var showAllCategories by remember { mutableStateOf(false) }
@@ -273,7 +277,7 @@ fun AddBudgetScreen(
                         ),
                         leadingIcon = {
                             Text(
-                                text = "Rp",
+                                text = symbol,
                                 style = MaterialTheme.typography.titleLarge.copy(
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant

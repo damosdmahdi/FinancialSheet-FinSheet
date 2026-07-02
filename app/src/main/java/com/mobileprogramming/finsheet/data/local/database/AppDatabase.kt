@@ -112,24 +112,24 @@ abstract class AppDatabase : RoomDatabase() {
             val transactions = listOf(
                 // Pemasukan
                 TransactionEntity(
-                    id = UUID.randomUUID().toString(), categoryId = catIdSalary, amount = 5000000,
+                    id = UUID.randomUUID().toString(), categoryId = catIdSalary, amount = 5000000.0,
                     transactionType = "INCOME", notes = "Gaji bulan ini", transactionDate = time
                 ),
                 // Pengeluaran
                 TransactionEntity(
-                    id = UUID.randomUUID().toString(), categoryId = catIdFood, amount = 50000,
+                    id = UUID.randomUUID().toString(), categoryId = catIdFood, amount = 50000.0,
                     transactionType = "EXPENSE", notes = "Makan siang", transactionDate = time
                 ),
                 TransactionEntity(
-                    id = UUID.randomUUID().toString(), categoryId = catIdFood, amount = 125000,
+                    id = UUID.randomUUID().toString(), categoryId = catIdFood, amount = 125000.0,
                     transactionType = "EXPENSE", notes = "Belanja mingguan", transactionDate = time
                 ),
                 TransactionEntity(
-                    id = UUID.randomUUID().toString(), categoryId = catIdTransport, amount = 75000,
+                    id = UUID.randomUUID().toString(), categoryId = catIdTransport, amount = 75000.0,
                     transactionType = "EXPENSE", notes = "Isi bensin", transactionDate = time
                 ),
                 TransactionEntity(
-                    id = UUID.randomUUID().toString(), categoryId = catIdEdu, amount = 250000,
+                    id = UUID.randomUUID().toString(), categoryId = catIdEdu, amount = 250000.0,
                     transactionType = "EXPENSE", notes = "Beli buku", transactionDate = time
                 )
             )

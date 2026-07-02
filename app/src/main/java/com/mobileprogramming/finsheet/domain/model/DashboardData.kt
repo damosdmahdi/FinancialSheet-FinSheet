@@ -1,9 +1,9 @@
 package com.mobileprogramming.finsheet.domain.model
 
 data class DashboardData(
-    val totalBalance: Long,
-    val incomeThisMonth: Long,
-    val expenseThisMonth: Long,
+    val totalBalance: Double,
+    val incomeThisMonth: Double,
+    val expenseThisMonth: Double,
     val categoryExpenses: List<CategoryExpenseModel>,
     val monthlyBudgets: List<BudgetProgressModel>
 )
@@ -13,7 +13,7 @@ data class CategoryExpenseModel(
     val categoryName: String,
     val icon: String? = null,
     val color: String? = null,
-    val totalAmount: Long
+    val totalAmount: Double
 )
 
 data class BudgetProgressModel(
@@ -22,6 +22,6 @@ data class BudgetProgressModel(
     val categoryId: String,
     val icon: String? = null,
     val color: String? = null,
-    val limitAmount: Long,
-    val usedAmount: Long
+    val limitAmount: Double,
+    val usedAmount: Double
 )

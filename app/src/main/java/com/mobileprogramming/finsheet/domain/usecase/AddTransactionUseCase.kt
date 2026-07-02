@@ -9,7 +9,7 @@ class AddTransactionUseCase(
 ) {
     suspend operator fun invoke(
         categoryId: String?,
-        amount: Int,
+        amount: Double,
         transactionType: String,
         notes: String?,
         transactionDate: Long,
