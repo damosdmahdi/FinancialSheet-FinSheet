@@ -341,7 +341,7 @@ private fun SyncStatusChip(
             )
         } else {
             Icon(
-                imageVector        = Icons.Outlined.CheckCircle,
+                imageVector        = Icons.Outlined.Sync,
                 contentDescription = "Sinkron",
                 tint               = textColor,
                 modifier           = Modifier.size(14.dp)

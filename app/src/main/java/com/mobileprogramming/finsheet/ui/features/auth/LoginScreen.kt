@@ -3,6 +3,8 @@ package com.mobileprogramming.finsheet.ui.features.auth
 import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -70,122 +72,185 @@ fun LoginScreen(
         }
     }
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+            .background(
+                brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                    colors = listOf(androidx.compose.ui.graphics.Color(0xFFF3F8FF), androidx.compose.ui.graphics.Color(0xFFE5F0FC))
+                )
+            )
     ) {
-        Image(
-            painter = painterResource(id = R.drawable.logo_finsheet),
-            contentDescription = "App Logo",
-            modifier = Modifier.size(120.dp)
-        )
-        
-        Spacer(modifier = Modifier.height(24.dp))
-        
-        Text(
-            text = "Welcome to FinSheet",
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold
-        )
-        
-        Spacer(modifier = Modifier.height(8.dp))
-        
-        Text(
-            text = "Sign in to continue managing your finances",
-            fontSize = 14.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Spacer(modifier = Modifier.weight(1f))
+            
+            // White card
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(32.dp),
+                colors = CardDefaults.cardColors(containerColor = androidx.compose.ui.graphics.Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp, vertical = 48.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "FinSheet",
+                        fontSize = 32.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = androidx.compose.ui.graphics.Color(0xFF0F47A1)
+                    )
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    Text(
+                        text = "Kelola keuangan mahasiswa dengan\ncerdas dan tersinkronisasi.",
+                        fontSize = 14.sp,
+                        color = androidx.compose.ui.graphics.Color.Gray,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                    
+                    Spacer(modifier = Modifier.height(48.dp))
+                    
+                    // Logo with rings
+                    Box(
+                        modifier = Modifier
+                            .size(120.dp)
+                            .border(1.dp, androidx.compose.ui.graphics.Color(0xFFE3F2FD), androidx.compose.foundation.shape.CircleShape)
+                            .padding(12.dp)
+                            .border(1.dp, androidx.compose.ui.graphics.Color(0xFFE3F2FD), androidx.compose.foundation.shape.CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.logo_finsheet),
+                            contentDescription = "App Logo",
+                            modifier = Modifier.size(60.dp)
+                        )
+                    }
 
-        Spacer(modifier = Modifier.height(48.dp))
+                    Spacer(modifier = Modifier.height(48.dp))
 
-        if (isLoading) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                CircularProgressIndicator()
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(text = "Menyiapkan akun & Sinkronisasi...", fontSize = 14.sp)
-            }
-        } else {
-            Button(
-                onClick = {
-                    coroutineScope.launch {
-                        isLoading = true
-                        val result = authClient.signIn()
-                        if (result != null) {
-                            val email = result.user?.email
-                            if (email != null) {
-                                try {
-                                    val token = authClient.getAccessToken(email)
-                                    if (token != null) {
-                                        val sheetsRepo = com.mobileprogramming.finsheet.data.remote.GoogleSheetsRepository(context)
-                                        val (id, isNew) = sheetsRepo.ensureSpreadsheetExists(token)
-                                        if (id != null) {
-                                            val message = if (isNew) "Spreadsheet baru berhasil dibuat!" else "Spreadsheet lama berhasil dihubungkan!"
-                                            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                    if (isLoading) {
+                        CircularProgressIndicator(color = androidx.compose.ui.graphics.Color(0xFF0F47A1))
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(text = "Menyiapkan akun...", fontSize = 14.sp, color = androidx.compose.ui.graphics.Color.Gray)
+                    } else {
+                        OutlinedButton(
+                            onClick = {
+                                coroutineScope.launch {
+                                    isLoading = true
+                                    val result = authClient.signIn()
+                                    if (result != null) {
+                                        val email = result.user?.email
+                                        if (email != null) {
+                                            try {
+                                                val token = authClient.getAccessToken(email)
+                                                if (token != null) {
+                                                    val sheetsRepo = com.mobileprogramming.finsheet.data.remote.GoogleSheetsRepository(context)
+                                                    val (id, isNew) = sheetsRepo.ensureSpreadsheetExists(token)
+                                                    if (id != null) {
+                                                        val message = if (isNew) "Spreadsheet baru berhasil dibuat!" else "Spreadsheet lama berhasil dihubungkan!"
+                                                        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                                                    } else {
+                                                        Toast.makeText(context, "Gagal! Pastikan API Google Sheets & Drive AKTIF di Cloud Console.", Toast.LENGTH_LONG).show()
+                                                    }
+                                                }
+                                                isLoading = false
+                                                onNavigateToDashboard()
+                                            } catch (e: com.google.android.gms.auth.UserRecoverableAuthException) {
+                                                e.intent?.let { intent ->
+                                                    launcher.launch(intent)
+                                                } ?: run {
+                                                    isLoading = false
+                                                    Toast.makeText(context, "Tidak dapat meminta izin", Toast.LENGTH_SHORT).show()
+                                                    onNavigateToDashboard()
+                                                }
+                                            } catch (e: Exception) {
+                                                isLoading = false
+                                                if (e.message == "DRIVE_API_DISABLED") {
+                                                    Toast.makeText(context, "GAGAL: Google Drive API belum diaktifkan di Cloud Console!", Toast.LENGTH_LONG).show()
+                                                }
+                                                onNavigateToDashboard()
+                                            }
                                         } else {
-                                            Toast.makeText(context, "Gagal! Pastikan API Google Sheets & Drive AKTIF di Cloud Console.", Toast.LENGTH_LONG).show()
+                                            isLoading = false
+                                            onNavigateToDashboard()
                                         }
-                                    }
-                                    isLoading = false
-                                    onNavigateToDashboard()
-                                } catch (e: com.google.android.gms.auth.UserRecoverableAuthException) {
-                                    // Tampilkan persetujuan ke user
-                                    e.intent?.let { intent ->
-                                        launcher.launch(intent)
-                                    } ?: run {
+                                    } else {
                                         isLoading = false
-                                        Toast.makeText(context, "Tidak dapat meminta izin", Toast.LENGTH_SHORT).show()
-                                        onNavigateToDashboard()
+                                        Toast.makeText(context, "Sign In Failed", Toast.LENGTH_SHORT).show()
                                     }
-                                } catch (e: Exception) {
-                                    isLoading = false
-                                    if (e.message == "DRIVE_API_DISABLED") {
-                                        Toast.makeText(context, "GAGAL: Google Drive API belum diaktifkan di Cloud Console!", Toast.LENGTH_LONG).show()
-                                    }
-                                    onNavigateToDashboard()
                                 }
-                            } else {
-                                isLoading = false
-                                onNavigateToDashboard()
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(56.dp),
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, androidx.compose.ui.graphics.Color(0xFFE0E0E0)),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                containerColor = androidx.compose.ui.graphics.Color.White
+                            )
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_google),
+                                contentDescription = "Google Icon",
+                                tint = androidx.compose.ui.graphics.Color.Unspecified,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = "Masuk dengan Google",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = androidx.compose.ui.graphics.Color(0xFF1C2B36)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        TextButton(
+                            onClick = {
+                                coroutineScope.launch {
+                                    isLoading = true
+                                    val result = authClient.signInAsGuest()
+                                    isLoading = false
+                                    if (result != null) {
+                                        Toast.makeText(context, "Masuk sebagai Guest Berhasil", Toast.LENGTH_SHORT).show()
+                                        onNavigateToDashboard()
+                                    } else {
+                                        Toast.makeText(context, "Gagal masuk sebagai Guest", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
                             }
-                        } else {
-                            isLoading = false
-                            Toast.makeText(context, "Sign In Failed", Toast.LENGTH_SHORT).show()
+                        ) {
+                            Text(
+                                text = "Masuk tanpa Login",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = androidx.compose.ui.graphics.Color(0xFF0F47A1)
+                            )
                         }
                     }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp)
-            ) {
-                Text(text = "Sign in with Google", fontSize = 16.sp)
+                }
             }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            OutlinedButton(
-                onClick = {
-                    coroutineScope.launch {
-                        isLoading = true
-                        val result = authClient.signInAsGuest()
-                        isLoading = false
-                        if (result != null) {
-                            Toast.makeText(context, "Masuk sebagai Guest Berhasil", Toast.LENGTH_SHORT).show()
-                            onNavigateToDashboard()
-                        } else {
-                            Toast.makeText(context, "Gagal masuk sebagai Guest", Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp)
-            ) {
-                Text(text = "Masuk sebagai Guest", fontSize = 16.sp)
-            }
-
+            
+            Spacer(modifier = Modifier.weight(1f))
+            
+            Text(
+                text = "© 2026 FINSHEET — AMAN • CERDAS • MAHASISWA",
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Medium,
+                color = androidx.compose.ui.graphics.Color.Gray,
+                modifier = Modifier.padding(bottom = 24.dp)
+            )
         }
     }
 }
