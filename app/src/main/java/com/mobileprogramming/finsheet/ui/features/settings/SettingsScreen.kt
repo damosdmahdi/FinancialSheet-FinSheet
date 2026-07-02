@@ -131,122 +131,6 @@ fun SettingsScreen(
         )
     }
 
-    var showSheetDialog by remember { mutableStateOf(false) }
-    var showCustomSheetInput by remember { mutableStateOf(false) }
-    var customSheetName by remember { mutableStateOf("") }
-
-    if (showSheetDialog) {
-        AlertDialog(
-            onDismissRequest = { 
-                showSheetDialog = false 
-                showCustomSheetInput = false
-            },
-            title = {
-                Text(
-                    text = "Pilih Google Sheet",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-            },
-            text = {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        text = "Pilih file spreadsheet untuk sinkronisasi data transaksi keuangan Anda:",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-
-                    val presetSheets = listOf("FinSheet_Dashboard", "FinSheet_Student_Budget", "FinSheet_Tabungan_MasaDepan")
-                    presetSheets.forEach { sheet ->
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    viewModel.setGoogleSheetName(sheet)
-                                    android.widget.Toast.makeText(context, "Google Sheet disetel ke: $sheet", android.widget.Toast.LENGTH_SHORT).show()
-                                    showSheetDialog = false
-                                },
-                            colors = CardDefaults.cardColors(
-                                containerColor = if (uiState.selectedGoogleSheet == sheet) 
-                                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f) 
-                                else MaterialTheme.colorScheme.surfaceContainer
-                            ),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(12.dp)
-                            ) {
-                                Text(
-                                    text = sheet,
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = if (uiState.selectedGoogleSheet == sheet) 
-                                        MaterialTheme.colorScheme.primary 
-                                    else MaterialTheme.colorScheme.onSurface,
-                                    fontWeight = if (uiState.selectedGoogleSheet == sheet) 
-                                        FontWeight.Bold 
-                                    else FontWeight.Normal
-                                )
-                            }
-                        }
-                    }
-
-                    if (showCustomSheetInput) {
-                        OutlinedTextField(
-                            value = customSheetName,
-                            onValueChange = { customSheetName = it },
-                            placeholder = { Text("Nama Sheet Kustom") },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 8.dp),
-                            singleLine = true,
-                            shape = RoundedCornerShape(8.dp)
-                        )
-                    } else {
-                        OutlinedButton(
-                            onClick = { showCustomSheetInput = true },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Text("Tambah Sheet Baru...")
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                if (showCustomSheetInput) {
-                    TextButton(
-                        onClick = {
-                            if (customSheetName.isNotBlank()) {
-                                viewModel.setGoogleSheetName(customSheetName)
-                                android.widget.Toast.makeText(context, "Google Sheet disetel ke: $customSheetName", android.widget.Toast.LENGTH_SHORT).show()
-                                showSheetDialog = false
-                                showCustomSheetInput = false
-                                customSheetName = ""
-                            }
-                        },
-                        enabled = customSheetName.isNotBlank()
-                    ) {
-                        Text("Simpan")
-                    }
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { 
-                    showSheetDialog = false 
-                    showCustomSheetInput = false
-                }) {
-                    Text("Batal")
-                }
-            }
-        )
-    }
-
     if (showPhotoSourceDialog) {
         val primaryBlue = Color(0xFF1A5BEB)
         AlertDialog(
@@ -556,9 +440,17 @@ fun SettingsScreen(
             
             SettingsItemCard(
                 icon = Icons.Outlined.TableView,
-                title = "Pilih Google Sheet",
-                subtitle = uiState.selectedGoogleSheet,
-                onClick = { showSheetDialog = true },
+                title = "Akses Spreadsheet",
+                subtitle = "Buka data transaksi di Google Sheets",
+                onClick = { 
+                    val url = viewModel.getSpreadsheetUrl()
+                    if (url != null) {
+                        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))
+                        context.startActivity(intent)
+                    } else {
+                        android.widget.Toast.makeText(context, "Spreadsheet belum dibuat. Silakan sinkronisasi dulu.", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                },
                 trailing = {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,

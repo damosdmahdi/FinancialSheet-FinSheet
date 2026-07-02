@@ -21,7 +21,6 @@ data class SettingsUiState(
     val anggaranHarian: Boolean = true,
     val anggaranMingguan: Boolean = true,
     val anggaranBulanan: Boolean = true,
-    val selectedGoogleSheet: String = "Belum terhubung ke Google Sheet",
     val isUserLoggedIn: Boolean = false,
     val userDisplayName: String? = null,
     val userEmail: String? = null,
@@ -67,7 +66,6 @@ class SettingsViewModel(
         val dailyBudget = sharedPreferences.getBoolean("anggaran_harian_terlewati", true)
         val weeklyBudget = sharedPreferences.getBoolean("anggaran_mingguan_terlewati", true)
         val monthlyBudget = sharedPreferences.getBoolean("anggaran_bulanan_terlewati", true)
-        val sheetName = sharedPreferences.getString("google_sheet_name", "Belum terhubung ke Google Sheet") ?: "Belum terhubung ke Google Sheet"
         val customPhoto = sharedPreferences.getString("custom_profile_photo", null)
         
         _uiState.update { currentState ->
@@ -75,7 +73,6 @@ class SettingsViewModel(
                 anggaranHarian = dailyBudget,
                 anggaranMingguan = weeklyBudget,
                 anggaranBulanan = monthlyBudget,
-                selectedGoogleSheet = sheetName,
                 customProfilePhotoPath = customPhoto
             )
         }
@@ -116,9 +113,9 @@ class SettingsViewModel(
         _uiState.update { it.copy(anggaranMingguan = value) }
     }
 
-    fun setGoogleSheetName(value: String) {
-        sharedPreferences.edit().putString("google_sheet_name", value).apply()
-        _uiState.update { it.copy(selectedGoogleSheet = value) }
+    fun getSpreadsheetUrl(): String? {
+        val sheetId = sharedPreferences.getString("spreadsheet_id", null)
+        return if (sheetId != null) "https://docs.google.com/spreadsheets/d/$sheetId/edit" else null
     }
 
     fun saveCustomProfilePhoto(context: android.content.Context, uri: android.net.Uri) {
