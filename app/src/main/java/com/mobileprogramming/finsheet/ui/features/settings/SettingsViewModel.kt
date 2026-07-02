@@ -22,6 +22,7 @@ data class SettingsUiState(
     val anggaranMingguan: Boolean = true,
     val anggaranBulanan: Boolean = true,
     val isUserLoggedIn: Boolean = false,
+    val isGuest: Boolean = false,
     val userDisplayName: String? = null,
     val userEmail: String? = null,
     val userPhotoUrl: String? = null,
@@ -83,6 +84,7 @@ class SettingsViewModel(
             if (user != null) {
                 currentState.copy(
                     isUserLoggedIn = true,
+                    isGuest = user.isAnonymous,
                     userDisplayName = user.displayName ?: user.email?.substringBefore("@"),
                     userEmail = user.email,
                     userPhotoUrl = user.photoUrl?.toString()
@@ -90,6 +92,7 @@ class SettingsViewModel(
             } else {
                 currentState.copy(
                     isUserLoggedIn = false,
+                    isGuest = false,
                     userDisplayName = null,
                     userEmail = null,
                     userPhotoUrl = null

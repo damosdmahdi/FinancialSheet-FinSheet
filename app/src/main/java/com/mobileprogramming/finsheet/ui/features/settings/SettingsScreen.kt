@@ -28,8 +28,11 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.painterResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.google.firebase.auth.FirebaseAuth
+import com.mobileprogramming.finsheet.R
 import com.mobileprogramming.finsheet.ui.features.auth.GoogleAuthClient
 import kotlinx.coroutines.launch
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -285,7 +288,8 @@ fun SettingsScreen(
                         Row(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            val initial = (uiState.userDisplayName ?: uiState.userEmail ?: "F").first().uppercase()
+                            val displayNameForInitial = uiState.userDisplayName?.takeIf { it.isNotBlank() } ?: uiState.userEmail?.takeIf { it.isNotBlank() } ?: "F"
+                            val initial = displayNameForInitial.first().uppercase()
                             Box(
                                 modifier = Modifier
                                     .size(56.dp)
@@ -320,7 +324,7 @@ fun SettingsScreen(
                             Spacer(modifier = Modifier.width(16.dp))
                             Column {
                                 Text(
-                                    text = uiState.userDisplayName ?: "Pengguna FinSheet",
+                                    text = uiState.userDisplayName?.takeIf { it.isNotBlank() } ?: "Pengguna FinSheet",
                                     style = MaterialTheme.typography.titleLarge,
                                     fontWeight = FontWeight.SemiBold,
                                     color = MaterialTheme.colorScheme.onSurface
@@ -333,31 +337,68 @@ fun SettingsScreen(
                             }
                         }
                         Spacer(modifier = Modifier.height(20.dp))
-                        Button(
-                            onClick = {
-                                viewModel.signOut()
-                                android.widget.Toast.makeText(context, "Berhasil keluar dari akun", android.widget.Toast.LENGTH_SHORT).show()
-                                onNavigateToLogin()
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(48.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.errorContainer,
-                                contentColor = MaterialTheme.colorScheme.onErrorContainer
-                            )
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.Login,
-                                contentDescription = null,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "Keluar dari Akun",
-                                style = MaterialTheme.typography.labelLarge
-                            )
+                        if (uiState.isGuest) {
+                            OutlinedButton(
+                                onClick = {
+                                    coroutineScope.launch {
+                                        val result = authClient.signIn()
+                                        if (result != null) {
+                                            android.widget.Toast.makeText(context, "Berhasil masuk dengan akun Google", android.widget.Toast.LENGTH_SHORT).show()
+                                        } else {
+                                            android.widget.Toast.makeText(context, "Gagal masuk", android.widget.Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(56.dp),
+                                shape = RoundedCornerShape(16.dp),
+                                border = BorderStroke(1.dp, androidx.compose.ui.graphics.Color(0xFFE0E0E0)),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    containerColor = androidx.compose.ui.graphics.Color.White
+                                )
+                            ) {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_google),
+                                    contentDescription = "Google Icon",
+                                    tint = androidx.compose.ui.graphics.Color.Unspecified,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(
+                                    text = "Masuk dengan Google",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = androidx.compose.ui.graphics.Color(0xFF1C2B36)
+                                )
+                            }
+                        } else {
+                            Button(
+                                onClick = {
+                                    viewModel.signOut()
+                                    android.widget.Toast.makeText(context, "Berhasil keluar dari akun", android.widget.Toast.LENGTH_SHORT).show()
+                                    onNavigateToLogin()
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(48.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                                    contentColor = MaterialTheme.colorScheme.onErrorContainer
+                                )
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.Login,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Keluar dari Akun",
+                                    style = MaterialTheme.typography.labelLarge
+                                )
+                            }
                         }
                     } else {
                         Row(
@@ -404,34 +445,38 @@ fun SettingsScreen(
                             }
                         }
                         Spacer(modifier = Modifier.height(20.dp))
-                        Button(
+                        OutlinedButton(
                             onClick = {
                                 coroutineScope.launch {
                                     val result = authClient.signIn()
                                     if (result != null) {
-                                        android.widget.Toast.makeText(context, "Sign In Successful", android.widget.Toast.LENGTH_SHORT).show()
+                                        android.widget.Toast.makeText(context, "Berhasil masuk dengan akun Google", android.widget.Toast.LENGTH_SHORT).show()
                                     } else {
-                                        android.widget.Toast.makeText(context, "Sign In Failed", android.widget.Toast.LENGTH_SHORT).show()
+                                        android.widget.Toast.makeText(context, "Gagal masuk", android.widget.Toast.LENGTH_SHORT).show()
                                     }
                                 }
                             },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(48.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary
+                                .height(56.dp),
+                            shape = RoundedCornerShape(16.dp),
+                            border = BorderStroke(1.dp, androidx.compose.ui.graphics.Color(0xFFE0E0E0)),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                containerColor = androidx.compose.ui.graphics.Color.White
                             )
                         ) {
                             Icon(
-                                imageVector = Icons.AutoMirrored.Filled.Login,
-                                contentDescription = null,
-                                modifier = Modifier.size(20.dp)
+                                painter = painterResource(id = R.drawable.ic_google),
+                                contentDescription = "Google Icon",
+                                tint = androidx.compose.ui.graphics.Color.Unspecified,
+                                modifier = Modifier.size(24.dp)
                             )
-                            Spacer(modifier = Modifier.width(8.dp))
+                            Spacer(modifier = Modifier.width(12.dp))
                             Text(
                                 text = "Masuk dengan Google",
-                                style = MaterialTheme.typography.labelLarge
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = androidx.compose.ui.graphics.Color(0xFF1C2B36)
                             )
                         }
                     }
@@ -443,12 +488,16 @@ fun SettingsScreen(
                 title = "Akses Spreadsheet",
                 subtitle = "Buka data transaksi di Google Sheets",
                 onClick = { 
-                    val url = viewModel.getSpreadsheetUrl()
-                    if (url != null) {
-                        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))
-                        context.startActivity(intent)
+                    if (!uiState.isUserLoggedIn || uiState.isGuest) {
+                        android.widget.Toast.makeText(context, "Harap masuk dengan akun Google untuk gunakan fitur", android.widget.Toast.LENGTH_LONG).show()
                     } else {
-                        android.widget.Toast.makeText(context, "Spreadsheet belum dibuat. Silakan sinkronisasi dulu.", android.widget.Toast.LENGTH_SHORT).show()
+                        val url = viewModel.getSpreadsheetUrl()
+                        if (url != null) {
+                            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))
+                            context.startActivity(intent)
+                        } else {
+                            android.widget.Toast.makeText(context, "Spreadsheet belum dibuat. Silakan sinkronisasi dulu.", android.widget.Toast.LENGTH_SHORT).show()
+                        }
                     }
                 },
                 trailing = {

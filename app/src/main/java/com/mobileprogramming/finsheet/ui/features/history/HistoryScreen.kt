@@ -327,14 +327,14 @@ private fun SyncStatusChip(
             )
         } else {
             Icon(
-                imageVector        = Icons.Outlined.CheckCircle,
+                imageVector        = Icons.Outlined.Sync,
                 contentDescription = "Sinkron",
                 tint               = textColor,
                 modifier           = Modifier.size(14.dp)
             )
         }
         Text(
-            text  = if (isSyncing) "Sinkronisasi..." else "Sudah Sinkron",
+            text  = if (isSyncing) "Sinkronisasi..." else "Sinkronkan",
             style = MaterialTheme.typography.labelSmall.copy(
                 fontWeight = FontWeight.SemiBold,
                 color      = textColor,
