@@ -62,14 +62,16 @@ data class BudgetUiState(
     val totalBudget: String = "3500000",
     val unallocatedBudget: String = "0",
     val isEditing: Boolean = false,
-    val categories: List<BudgetCategoryState> = emptyList()
+    val categories: List<BudgetCategoryState> = emptyList(),
+    val activeCurrency: com.mobileprogramming.finsheet.data.local.entity.CurrencyEntity? = null
 )
 
 class BudgetViewModel(
     private val getBudgetScreenDataUseCase: GetBudgetScreenDataUseCase,
     private val saveCategoryBudgetsUseCase: SaveCategoryBudgetsUseCase,
     private val deleteBudgetUseCase: DeleteBudgetUseCase,
-    private val sharedPreferences: SharedPreferences
+    private val sharedPreferences: SharedPreferences,
+    private val getActiveCurrencyFlowUseCase: com.mobileprogramming.finsheet.domain.usecase.currency.GetActiveCurrencyFlowUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(BudgetUiState())
@@ -170,8 +172,8 @@ class BudgetViewModel(
     fun saveChanges() {
         viewModelScope.launch {
             _uiState.value.categories.forEach { category ->
-                val amount = category.allocatedAmount.toLongOrNull() ?: 0L
-                if (amount > 0) {
+                val amount = category.allocatedAmount.toDoubleOrNull() ?: 0.0
+                if (amount > 0.0) {
                     saveCategoryBudgetsUseCase(
                         categoryId = category.id,
                         budgetName = "Batas Anggaran ${category.name}",
@@ -189,9 +191,9 @@ class BudgetViewModel(
 fun formatRupiah(amount: String): String {
     if (amount.isEmpty()) return "0"
     return try {
-        val number = amount.toLong()
-        val formatter = java.text.DecimalFormat("#,###", java.text.DecimalFormatSymbols(java.util.Locale.Builder().setLanguage("id").setRegion("ID").build()))
-        formatter.format(number).replace(',', '.')
+        val number = amount.toDouble()
+        val formatter = java.text.DecimalFormat("#,##0.##", java.text.DecimalFormatSymbols(java.util.Locale.Builder().setLanguage("id").setRegion("ID").build()))
+        formatter.format(number)
     } catch (e: Exception) {
         amount
     }
@@ -200,9 +202,9 @@ fun formatRupiah(amount: String): String {
 fun formatCurrencyWithRate(amount: String, rate: Double): String {
     if (amount.isEmpty()) return "0"
     return try {
-        val converted = (amount.toDouble() * rate).toLong()
-        val formatter = java.text.DecimalFormat("#,###", java.text.DecimalFormatSymbols(java.util.Locale.Builder().setLanguage("id").setRegion("ID").build()))
-        formatter.format(converted).replace(',', '.')
+        val converted = amount.toDouble() * rate
+        val formatter = java.text.DecimalFormat("#,##0.##", java.text.DecimalFormatSymbols(java.util.Locale.Builder().setLanguage("id").setRegion("ID").build()))
+        formatter.format(converted)
     } catch (e: Exception) {
         amount
     }

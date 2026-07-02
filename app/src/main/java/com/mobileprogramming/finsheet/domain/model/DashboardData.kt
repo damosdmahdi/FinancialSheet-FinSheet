@@ -1,15 +1,15 @@
 package com.mobileprogramming.finsheet.domain.model
 
 data class DashboardData(
-    val totalBalance: Long,
-    val incomeThisMonth: Long,
-    val expenseThisMonth: Long,
+    val totalBalance: Double,
+    val incomeThisMonth: Double,
+    val expenseThisMonth: Double,
     val categoryExpensesToday: List<CategoryExpenseModel>,
     val categoryExpensesThisWeek: List<CategoryExpenseModel>,
     val categoryExpensesThisMonth: List<CategoryExpenseModel>,
-    val totalExpenseToday: Long,
-    val totalExpenseThisWeek: Long,
-    val totalExpenseThisMonth: Long,
+    val totalExpenseToday: Double,
+    val totalExpenseThisWeek: Double,
+    val totalExpenseThisMonth: Double,
     val monthlyBudgets: List<BudgetProgressModel>
 )
 

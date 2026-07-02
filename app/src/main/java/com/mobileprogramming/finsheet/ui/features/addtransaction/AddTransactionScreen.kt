@@ -661,7 +661,7 @@ private fun AmountInputCard(
     val idrVal = (amountVal / rate)
     
     val format = java.text.NumberFormat.getCurrencyInstance(java.util.Locale("id", "ID"))
-    format.maximumFractionDigits = 0
+    format.maximumFractionDigits = 2
     val idrPreview = format.format(idrVal).replace("Rp", "Rp ")
 
     Surface(

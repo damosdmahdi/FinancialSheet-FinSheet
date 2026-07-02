@@ -199,8 +199,10 @@ fun HistoryScreen(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     val context = LocalContext.current
+                    val isUserLoggedIn = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser != null
                     SyncStatusChip(
                         isSyncing = isSyncing,
+                        isUserLoggedIn = isUserLoggedIn,
                         primaryBlue = primaryBlue,
                         onClick   = {
                             if (!isSyncing) {
@@ -299,15 +301,20 @@ fun HistoryScreen(
 @Composable
 private fun SyncStatusChip(
     isSyncing: Boolean,
+    isUserLoggedIn: Boolean,
     primaryBlue: Color,
     onClick: () -> Unit
 ) {
     val bgColor   = if (isSyncing)
         MaterialTheme.colorScheme.primaryContainer
+    else if (!isUserLoggedIn)
+        MaterialTheme.colorScheme.errorContainer
     else
         MaterialTheme.colorScheme.secondaryContainer
     val textColor = if (isSyncing)
         MaterialTheme.colorScheme.onPrimaryContainer
+    else if (!isUserLoggedIn)
+        MaterialTheme.colorScheme.onErrorContainer
     else
         MaterialTheme.colorScheme.onSecondaryContainer
     Row(
@@ -325,6 +332,13 @@ private fun SyncStatusChip(
                 color     = textColor,
                 strokeWidth = 1.5.dp
             )
+        } else if (!isUserLoggedIn) {
+            Icon(
+                imageVector        = Icons.Outlined.ErrorOutline,
+                contentDescription = "Belum Login",
+                tint               = textColor,
+                modifier           = Modifier.size(14.dp)
+            )
         } else {
             Icon(
                 imageVector        = Icons.Outlined.CheckCircle,
@@ -334,7 +348,7 @@ private fun SyncStatusChip(
             )
         }
         Text(
-            text  = if (isSyncing) "Sinkronisasi..." else "Sudah Sinkron",
+            text  = if (isSyncing) "Sinkronisasi..." else if (!isUserLoggedIn) "Belum Login" else "Sudah Sinkron",
             style = MaterialTheme.typography.labelSmall.copy(
                 fontWeight = FontWeight.SemiBold,
                 color      = textColor,

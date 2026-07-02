@@ -127,18 +127,22 @@ object Injection {
     }
 
     fun provideBudgetViewModelFactory(context: Context): BudgetViewModelFactory {
+        val repo = provideCurrencyRepository(context)
         return BudgetViewModelFactory(
             provideGetBudgetScreenDataUseCase(context),
             provideSaveCategoryBudgetsUseCase(context),
             provideDeleteBudgetUseCase(context),
-            provideSharedPreferences(context)
+            provideSharedPreferences(context),
+            com.mobileprogramming.finsheet.domain.usecase.currency.GetActiveCurrencyFlowUseCase(repo)
         )
     }
 
     fun provideAddBudgetViewModelFactory(context: Context): AddBudgetViewModelFactory {
+        val repo = provideCurrencyRepository(context)
         return AddBudgetViewModelFactory(
             provideCategoryRepository(context),
-            provideSaveCategoryBudgetsUseCase(context)
+            provideSaveCategoryBudgetsUseCase(context),
+            com.mobileprogramming.finsheet.domain.usecase.currency.GetActiveCurrencyFlowUseCase(repo)
         )
     }
 
@@ -192,10 +196,5 @@ object Injection {
         )
     }
 
-    fun provideBudgetViewModelFactory(context: Context): com.mobileprogramming.finsheet.ui.features.budget.BudgetViewModelFactory {
-        val repo = provideCurrencyRepository(context)
-        return com.mobileprogramming.finsheet.ui.features.budget.BudgetViewModelFactory(
-            getActiveCurrencyFlowUseCase = com.mobileprogramming.finsheet.domain.usecase.currency.GetActiveCurrencyFlowUseCase(repo)
-        )
-    }
+
 }

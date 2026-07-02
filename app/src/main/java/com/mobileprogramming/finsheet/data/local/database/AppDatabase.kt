@@ -28,7 +28,7 @@ import java.util.UUID
         BudgetEntity::class,
         CurrencyEntity::class
     ], 
-    version = 2, 
+    version = 5, 
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -111,7 +111,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "personal_finance_db"
                 )
-                .fallbackToDestructiveMigration() 
+                .fallbackToDestructiveMigration(dropAllTables = true) 
                 .addCallback(AppDatabaseCallback(scope))
                 .build()
                 

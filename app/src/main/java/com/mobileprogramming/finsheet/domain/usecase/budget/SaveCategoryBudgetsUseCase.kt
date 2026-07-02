@@ -9,7 +9,7 @@ import java.util.Calendar
 class SaveCategoryBudgetsUseCase(
     private val budgetRepository: BudgetRepository
 ) {
-    suspend operator fun invoke(categoryId: String, budgetName: String, amountLimit: Long) {
+    suspend operator fun invoke(categoryId: String, budgetName: String, amountLimit: Double) {
         val activeBudgets = budgetRepository.getAllActiveBudgets().first()
         val existing = activeBudgets.find { it.categoryId == categoryId }
         

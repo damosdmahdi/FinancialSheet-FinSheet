@@ -85,7 +85,7 @@ class HistoryViewModel(
         val symbol = activeCurrency?.symbol ?: "Rp"
         
         val format = NumberFormat.getCurrencyInstance(Locale("en", "US"))
-        format.maximumFractionDigits = 0
+        format.maximumFractionDigits = 2
         val customFormat = { amount: Double ->
             format.format(amount).replace("$", "$symbol ")
         }

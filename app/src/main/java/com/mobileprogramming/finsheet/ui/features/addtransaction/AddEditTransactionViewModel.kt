@@ -128,8 +128,8 @@ class AddEditTransactionViewModel(
     }
 
     fun onAmountChanged(amount: String) {
-        // Allow empty or numeric with optional decimal
-        if (amount.isEmpty() || amount.matches(Regex("^\\d*\\.?\\d*\$"))) {
+        // Allow empty or numeric with optional decimal up to 2 places
+        if (amount.isEmpty() || amount.matches(Regex("^\\d*\\.?\\d{0,2}$"))) {
             _state.update { it.copy(amount = amount) }
         }
     }
@@ -191,9 +191,9 @@ class AddEditTransactionViewModel(
                 if (_state.value.transactionType == "EXPENSE") {
                     val limitResults = checkTransactionBudgetLimitUseCase(
                         categoryId = categoryId,
-                        amount = amountInt.toLong(),
+                        amount = amountVal,
                         date = _state.value.date,
-                        globalMonthlyLimit = sharedPreferences.getLong("total_monthly_budget", 3500000L)
+                        globalMonthlyLimit = sharedPreferences.getLong("total_monthly_budget", 3500000L).toDouble()
                     )
                     
                     limitResults.forEach { result ->

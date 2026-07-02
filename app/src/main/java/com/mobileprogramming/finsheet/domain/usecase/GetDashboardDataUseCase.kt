@@ -34,13 +34,13 @@ class GetDashboardDataUseCase(
             val currentMonth = calendar.get(Calendar.MONTH)
             val currentYear = calendar.get(Calendar.YEAR)
 
-            val expensesByCategoryToday = mutableMapOf<String, Long>()
-            val expensesByCategoryThisWeek = mutableMapOf<String, Long>()
+            val expensesByCategoryToday = mutableMapOf<String, Double>()
+            val expensesByCategoryThisWeek = mutableMapOf<String, Double>()
             val expensesByCategoryThisMonth = mutableMapOf<String, Double>()
             
-            var totalExpenseToday = 0L
-            var totalExpenseThisWeek = 0L
-            var totalExpenseThisMonth = 0L
+            var totalExpenseToday = 0.0
+            var totalExpenseThisWeek = 0.0
+            var totalExpenseThisMonth = 0.0
 
             for (tx in transactions) {
                 if (tx.transactionType == "INCOME") {
@@ -62,13 +62,13 @@ class GetDashboardDataUseCase(
                     if (isToday) {
                         totalExpenseToday += tx.amount
                         tx.categoryId?.let { id ->
-                            expensesByCategoryToday[id] = (expensesByCategoryToday[id] ?: 0L) + tx.amount
+                            expensesByCategoryToday[id] = (expensesByCategoryToday[id] ?: 0.0) + tx.amount
                         }
                     }
                     if (isThisWeek) {
                         totalExpenseThisWeek += tx.amount
                         tx.categoryId?.let { id ->
-                            expensesByCategoryThisWeek[id] = (expensesByCategoryThisWeek[id] ?: 0L) + tx.amount
+                            expensesByCategoryThisWeek[id] = (expensesByCategoryThisWeek[id] ?: 0.0) + tx.amount
                         }
                     }
                     if (isThisMonth) {
@@ -133,7 +133,7 @@ class GetDashboardDataUseCase(
                         categoryId = budget.categoryId,
                         icon = category.icon,
                         color = category.color,
-                        limitAmount = budget.amountLimit.toDouble(),
+                        limitAmount = budget.amountLimit,
                         usedAmount = usedAmount
                     )
                 } else null

@@ -290,7 +290,8 @@ fun SettingsScreen(
                         Row(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            val initial = (uiState.userDisplayName ?: uiState.userEmail ?: "F").first().uppercase()
+                            val defaultName = uiState.userDisplayName?.takeIf { it.isNotEmpty() } ?: uiState.userEmail?.takeIf { it.isNotEmpty() } ?: "F"
+                            val initial = defaultName.first().uppercase()
                             Box(
                                 modifier = Modifier
                                     .size(56.dp)
@@ -396,7 +397,7 @@ fun SettingsScreen(
                             Spacer(modifier = Modifier.width(16.dp))
                             Column {
                                 Text(
-                                    text = "Masuk atau Daftar",
+                                    text = "Belum Login",
                                     style = MaterialTheme.typography.titleLarge,
                                     fontWeight = FontWeight.SemiBold,
                                     color = MaterialTheme.colorScheme.onSurface
@@ -446,14 +447,18 @@ fun SettingsScreen(
             SettingsItemCard(
                 icon = Icons.Outlined.TableView,
                 title = "Akses Spreadsheet",
-                subtitle = "Buka data transaksi di Google Sheets",
+                subtitle = if (uiState.isUserLoggedIn) "Buka data transaksi di Google Sheets" else "Silakan masuk untuk mengakses Spreadsheet",
                 onClick = { 
-                    val url = viewModel.getSpreadsheetUrl()
-                    if (url != null) {
-                        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))
-                        context.startActivity(intent)
+                    if (uiState.isUserLoggedIn) {
+                        val url = viewModel.getSpreadsheetUrl()
+                        if (url != null) {
+                            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))
+                            context.startActivity(intent)
+                        } else {
+                            android.widget.Toast.makeText(context, "Spreadsheet belum dibuat. Silakan sinkronisasi dulu.", android.widget.Toast.LENGTH_SHORT).show()
+                        }
                     } else {
-                        android.widget.Toast.makeText(context, "Spreadsheet belum dibuat. Silakan sinkronisasi dulu.", android.widget.Toast.LENGTH_SHORT).show()
+                        android.widget.Toast.makeText(context, "Silakan login terlebih dahulu", android.widget.Toast.LENGTH_SHORT).show()
                     }
                 },
                 trailing = {
@@ -655,7 +660,6 @@ fun SettingsItemCard(
     title: String,
     subtitle: String,
     onClick: (() -> Unit)? = null,
-    onClick: () -> Unit = {},
     trailing: @Composable (() -> Unit)? = null
 ) {
     val cardModifier = if (onClick != null) {
@@ -664,9 +668,7 @@ fun SettingsItemCard(
         Modifier.fillMaxWidth()
     }
     Card(
-        modifier = cardModifier
-            
-            .clickable { onClick() },
+        modifier = cardModifier,
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface

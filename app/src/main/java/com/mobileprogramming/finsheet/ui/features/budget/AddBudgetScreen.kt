@@ -103,11 +103,9 @@ fun AddBudgetScreen(
             LocalContext.current.applicationContext
         )
     ),
-    viewModel: BudgetViewModel,
     onNavigateBack: () -> Unit,
     onNavigateToAddCategory: () -> Unit
 ) {
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val symbol = uiState.activeCurrency?.symbol ?: "Rp"
     var selectedCategory by remember { mutableStateOf<CategoryItem?>(null) }
@@ -198,7 +196,7 @@ fun AddBudgetScreen(
                 Button(
                     onClick = {
                         val category = selectedCategory
-                        val amount = amountState.text.toLongOrNull()
+                        val amount = amountState.text.toDoubleOrNull()
                         if (category != null && amount != null) {
                             viewModel.saveBudget(
                                 categoryId = category.id,
@@ -326,9 +324,11 @@ fun AddBudgetScreen(
                     OutlinedTextField(
                         value = amountState,
                         onValueChange = { newValue ->
-                            val filtered = newValue.text.filter { it.isDigit() }
-                            if (filtered.length <= 15) {
-                                amountState = newValue.copy(text = filtered)
+                            val text = newValue.text
+                            if (text.isEmpty() || text.matches(Regex("^\\d*\\.?\\d{0,2}\$"))) {
+                                if (text.length <= 15) {
+                                    amountState = newValue
+                                }
                             }
                         },
                         modifier = Modifier.fillMaxWidth(),
