@@ -161,7 +161,7 @@ class AddEditTransactionViewModel(
             }
             
             val rate = _state.value.activeCurrency?.rateToIdr ?: 1.0
-            val amountInt = (inputAmount / rate).roundToInt()
+            val amountVal = inputAmount / rate
 
             val categoryId = _state.value.selectedCategory?.id
 
@@ -170,7 +170,7 @@ class AddEditTransactionViewModel(
                     updateTransactionUseCase(
                         existingTransaction = existingTransaction!!,
                         categoryId = categoryId,
-                        amount = amountInt,
+                        amount = amountVal,
                         transactionType = _state.value.transactionType,
                         notes = _state.value.notes.takeIf { it.isNotBlank() },
                         transactionDate = _state.value.date,
@@ -179,7 +179,7 @@ class AddEditTransactionViewModel(
                 } else {
                     addTransactionUseCase(
                         categoryId = categoryId,
-                        amount = amountInt,
+                        amount = amountVal,
                         transactionType = _state.value.transactionType,
                         notes = _state.value.notes.takeIf { it.isNotBlank() },
                         transactionDate = _state.value.date,

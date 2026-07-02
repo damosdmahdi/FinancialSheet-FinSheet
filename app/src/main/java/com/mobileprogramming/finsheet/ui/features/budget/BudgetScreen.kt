@@ -44,6 +44,8 @@ import com.mobileprogramming.finsheet.domain.usecase.budget.GetBudgetScreenDataU
 import com.mobileprogramming.finsheet.domain.usecase.budget.SaveCategoryBudgetsUseCase
 import com.mobileprogramming.finsheet.domain.usecase.budget.DeleteBudgetUseCase
 import com.mobileprogramming.finsheet.ui.features.addtransaction.CategoryIconMapper
+import kotlinx.coroutines.launch
+import androidx.lifecycle.viewModelScope
 
 // --- State and ViewModels ---
 
@@ -103,6 +105,14 @@ class BudgetViewModel(
                         unallocatedBudget = unallocated.toString()
                     )
                 }
+            }
+        }
+    }
+
+    init {
+        viewModelScope.launch {
+            getActiveCurrencyFlowUseCase().collect { currency ->
+                _uiState.update { it.copy(activeCurrency = currency) }
             }
         }
     }
@@ -187,6 +197,17 @@ fun formatRupiah(amount: String): String {
     }
 }
 
+fun formatCurrencyWithRate(amount: String, rate: Double): String {
+    if (amount.isEmpty()) return "0"
+    return try {
+        val converted = (amount.toDouble() * rate).toLong()
+        val formatter = java.text.DecimalFormat("#,###", java.text.DecimalFormatSymbols(java.util.Locale.Builder().setLanguage("id").setRegion("ID").build()))
+        formatter.format(converted).replace(',', '.')
+    } catch (e: Exception) {
+        amount
+    }
+}
+
 // --- UI Components ---
 
 @Composable
@@ -202,8 +223,14 @@ fun BudgetScreen(
     onNavigateToSettings: () -> Unit,
     onNavigateToAddBudget: () -> Unit
 ) {
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val viewModel: BudgetViewModel = viewModel(
+        factory = com.mobileprogramming.finsheet.di.Injection.provideBudgetViewModelFactory(context)
+    )
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    
+    val rate = uiState.activeCurrency?.rateToIdr ?: 1.0
+    val symbol = uiState.activeCurrency?.symbol ?: "Rp"
 
     Scaffold(
         bottomBar = {
@@ -277,7 +304,7 @@ fun BudgetScreen(
                                         ),
                                         leadingIcon = {
                                             Text(
-                                                text = "Rp",
+                                                text = symbol,
                                                 style = MaterialTheme.typography.titleLarge.copy(
                                                     fontWeight = FontWeight.Bold
                                                 ),
@@ -298,7 +325,7 @@ fun BudgetScreen(
                                     )
                                 } else {
                                     Text(
-                                        text = "Rp ${formatRupiah(uiState.totalBudget)}",
+                                        text = "$symbol ${formatCurrencyWithRate(uiState.totalBudget, rate)}",
                                         style = MaterialTheme.typography.headlineSmall.copy(
                                             fontWeight = FontWeight.Bold
                                         ),
@@ -336,7 +363,7 @@ fun BudgetScreen(
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(
-                                        text = infoText,
+                                        text = "Tersisa $symbol ${formatCurrencyWithRate(uiState.unallocatedBudget, rate)} belum dialokasikan",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = contentColor
                                     )
@@ -399,6 +426,8 @@ fun BudgetScreen(
                 BudgetCategoryItem(
                     category = category,
                     isEditing = uiState.isEditing,
+                    symbol = symbol,
+                    rate = rate,
                     onAmountChanged = { newAmount ->
                         viewModel.updateCategoryAmount(category.id, newAmount)
                     },
@@ -437,6 +466,8 @@ fun BudgetScreen(
 fun BudgetCategoryItem(
     category: BudgetCategoryState,
     isEditing: Boolean,
+    symbol: String,
+    rate: Double,
     onAmountChanged: (String) -> Unit,
     onDelete: () -> Unit
 ) {
@@ -504,13 +535,13 @@ fun BudgetCategoryItem(
             Spacer(modifier = Modifier.height(8.dp))
             
             OutlinedTextField(
-                value = category.allocatedAmount,
+                value = if (isEditing) category.allocatedAmount else formatCurrencyWithRate(category.allocatedAmount, rate),
                 onValueChange = onAmountChanged,
                 modifier = Modifier.fillMaxWidth(),
                 enabled = isEditing,
                 leadingIcon = {
                     Text(
-                        text = "Rp",
+                        text = symbol,
                         style = MaterialTheme.typography.bodyLarge,
                         color = if (isEditing) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -529,7 +560,7 @@ fun BudgetCategoryItem(
             
             if (category.dailyAmount.isNotEmpty()) {
                 Text(
-                    text = "Anggaran perhari sekitar Rp ${formatRupiah(category.dailyAmount)}",
+                    text = "Anggaran perhari sekitar $symbol ${formatCurrencyWithRate(category.dailyAmount, rate)}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

@@ -187,8 +187,17 @@ fun FinSheetNavGraph(
             )
         }
 
-        composable<Screen.AddBudget> {
+        composable<Screen.AddBudget> { backStackEntry ->
+            val parentEntry = androidx.compose.runtime.remember(backStackEntry) {
+                navController.getBackStackEntry<Screen.Budget>()
+            }
+            val context = androidx.compose.ui.platform.LocalContext.current
+            val viewModel: com.mobileprogramming.finsheet.ui.features.budget.BudgetViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+                parentEntry,
+                factory = com.mobileprogramming.finsheet.di.Injection.provideBudgetViewModelFactory(context)
+            )
             AddBudgetScreen(
+                viewModel = viewModel,
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToAddCategory = {
                     navController.navigate(Screen.AddCategory)

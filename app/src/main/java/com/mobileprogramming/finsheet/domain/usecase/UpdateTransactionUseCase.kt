@@ -9,7 +9,7 @@ class UpdateTransactionUseCase(
     suspend operator fun invoke(
         existingTransaction: TransactionEntity,
         categoryId: String?,
-        amount: Int,
+        amount: Double,
         transactionType: String,
         notes: String?,
         transactionDate: Long,
