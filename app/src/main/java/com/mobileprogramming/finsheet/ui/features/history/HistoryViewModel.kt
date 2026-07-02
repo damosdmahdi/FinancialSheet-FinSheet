@@ -18,6 +18,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import com.mobileprogramming.finsheet.domain.usecase.transaction.SyncTransactionsUseCase
+import com.mobileprogramming.finsheet.domain.usecase.transaction.SyncResult
 
 data class HistoryUiState(
     val transactions: List<TransactionGroupUI> = emptyList(),
@@ -188,10 +189,10 @@ class HistoryViewModel(
         }
     }
 
-    fun syncToGoogleSheets(email: String, onComplete: (Boolean) -> Unit) {
+    fun syncToGoogleSheets(email: String, onComplete: (SyncResult) -> Unit) {
         viewModelScope.launch {
-            val success = syncTransactionsUseCase(email)
-            onComplete(success)
+            val result = syncTransactionsUseCase(email)
+            onComplete(result)
         }
     }
 }

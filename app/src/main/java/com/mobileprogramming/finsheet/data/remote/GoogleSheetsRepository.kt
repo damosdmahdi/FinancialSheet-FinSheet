@@ -201,7 +201,7 @@ class GoogleSheetsRepository(private val context: Context) {
             val requestBody = jsonBody.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
             
             val request = Request.Builder()
-                .url("https://sheets.googleapis.com/v4/spreadsheets/$spreadsheetId/values/Transactions!A:G:append?valueInputOption=USER_ENTERED")
+                .url("https://sheets.googleapis.com/v4/spreadsheets/$spreadsheetId/values/Transactions%21A%3AG/append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS")
                 .addHeader("Authorization", "Bearer $accessToken")
                 .post(requestBody)
                 .build()

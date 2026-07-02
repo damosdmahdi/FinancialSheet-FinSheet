@@ -23,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.mobileprogramming.finsheet.domain.usecase.transaction.SyncResult
 import com.mobileprogramming.finsheet.ui.components.BottomNavigationBar
 import java.text.SimpleDateFormat
 import java.util.*
@@ -227,12 +228,24 @@ fun HistoryScreen(
                                 isSyncing = true
                                 val email = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.email
                                 if (email != null) {
-                                    viewModel.syncToGoogleSheets(email) { success ->
+                                    viewModel.syncToGoogleSheets(email) { result ->
                                         isSyncing = false
-                                        if (success) {
-                                            android.widget.Toast.makeText(context, "Berhasil Sinkron!", android.widget.Toast.LENGTH_SHORT).show()
-                                        } else {
-                                            android.widget.Toast.makeText(context, "Gagal Sinkron atau Tidak ada data baru", android.widget.Toast.LENGTH_SHORT).show()
+                                        when (result) {
+                                            is SyncResult.Success -> {
+                                                android.widget.Toast.makeText(context, "Berhasil Sinkron!", android.widget.Toast.LENGTH_SHORT).show()
+                                            }
+                                            is SyncResult.NoNewData -> {
+                                                android.widget.Toast.makeText(context, "Sudah tersinkronisasi, tidak ada data baru.", android.widget.Toast.LENGTH_SHORT).show()
+                                            }
+                                            is SyncResult.TokenError -> {
+                                                android.widget.Toast.makeText(context, "Izin belum diberikan, harap login ulang atau izinkan akses Drive.", android.widget.Toast.LENGTH_LONG).show()
+                                            }
+                                            is SyncResult.SheetError -> {
+                                                android.widget.Toast.makeText(context, "Gagal membuat/menemukan spreadsheet.", android.widget.Toast.LENGTH_LONG).show()
+                                            }
+                                            is SyncResult.Error -> {
+                                                android.widget.Toast.makeText(context, result.message ?: "Gagal Sinkron", android.widget.Toast.LENGTH_SHORT).show()
+                                            }
                                         }
                                     }
                                 } else {
