@@ -41,6 +41,7 @@ data class AddEditTransactionState(
 class AddEditTransactionViewModel(
     private val addTransactionUseCase: AddTransactionUseCase,
     private val updateTransactionUseCase: UpdateTransactionUseCase,
+    private val deleteTransactionUseCase: com.mobileprogramming.finsheet.domain.usecase.transaction.DeleteTransactionUseCase,
     private val getTransactionByIdUseCase: GetTransactionByIdUseCase,
     private val getCategoriesByTypeUseCase: GetCategoriesByTypeUseCase,
     private val getActiveCurrencyFlowUseCase: GetActiveCurrencyFlowUseCase,
@@ -166,6 +167,49 @@ class AddEditTransactionViewModel(
             val categoryId = _state.value.selectedCategory?.id
 
             try {
+                // Logic Peringatan Anggaran Terlewati dicek SEBELUM menyimpan ke DB
+                // agar transaksi baru belum masuk allTransactions saat dihitung
+                if (_state.value.transactionType == "EXPENSE" && !_state.value.isEditMode) {
+                    val limitResults = checkTransactionBudgetLimitUseCase(
+                        categoryId = categoryId,
+                        amount = amountVal,
+                        date = _state.value.date,
+                        globalMonthlyLimit = sharedPreferences.getLong("total_monthly_budget", 0L).toDouble()
+                    )
+
+                    limitResults.forEach { result ->
+                        val isEnabled = when (result.type) {
+                            BudgetExceedType.DAILY -> sharedPreferences.getBoolean("anggaran_harian_terlewati", true)
+                            BudgetExceedType.WEEKLY -> sharedPreferences.getBoolean("anggaran_mingguan_terlewati", true)
+                            BudgetExceedType.MONTHLY -> sharedPreferences.getBoolean("anggaran_bulanan_terlewati", true)
+                            BudgetExceedType.GLOBAL_MONTHLY -> sharedPreferences.getBoolean("anggaran_bulanan_terlewati", true)
+                        }
+
+                        if (isEnabled) {
+                            val title = when (result.type) {
+                                BudgetExceedType.DAILY -> "Batas Anggaran Harian Terlewati!"
+                                BudgetExceedType.WEEKLY -> "Batas Anggaran Mingguan Terlewati!"
+                                BudgetExceedType.MONTHLY -> "Batas Anggaran Bulanan Terlewati!"
+                                BudgetExceedType.GLOBAL_MONTHLY -> "Total Anggaran Bulanan Terlewati!"
+                            }
+
+                            val catName = result.categoryName ?: "Seluruh Kategori (Global)"
+                            val formatter = java.text.DecimalFormat("#,###", java.text.DecimalFormatSymbols(java.util.Locale.Builder().setLanguage("id").setRegion("ID").build()))
+                            val spentFormatted = formatter.format(result.spentAmount).replace(',', '.')
+                            val limitFormatted = formatter.format(result.budgetLimit).replace(',', '.')
+                            val message = "Pengeluaran untuk $catName mencapai Rp $spentFormatted (Batas: Rp $limitFormatted)."
+
+                            NotificationHelper.showBudgetNotification(
+                                context = context,
+                                title = title,
+                                message = message,
+                                notificationId = result.type.ordinal
+                            )
+                        }
+                    }
+                }
+
+                // Simpan transaksi ke DB setelah pengecekan notifikasi
                 if (_state.value.isEditMode && existingTransaction != null) {
                     updateTransactionUseCase(
                         existingTransaction = existingTransaction!!,
@@ -186,52 +230,18 @@ class AddEditTransactionViewModel(
                         receiptLocalPath = _state.value.receiptLocalPath
                     )
                 }
-                
-                // Logic Peringatan Anggaran Terlewati
-                if (_state.value.transactionType == "EXPENSE") {
-                    val limitResults = checkTransactionBudgetLimitUseCase(
-                        categoryId = categoryId,
-                        amount = amountVal,
-                        date = _state.value.date,
-                        globalMonthlyLimit = sharedPreferences.getLong("total_monthly_budget", 3500000L).toDouble()
-                    )
-                    
-                    limitResults.forEach { result ->
-                        val isEnabled = when (result.type) {
-                            BudgetExceedType.DAILY -> sharedPreferences.getBoolean("anggaran_harian_terlewati", true)
-                            BudgetExceedType.WEEKLY -> sharedPreferences.getBoolean("anggaran_mingguan_terlewati", true)
-                            BudgetExceedType.MONTHLY -> sharedPreferences.getBoolean("anggaran_bulanan_terlewati", true)
-                            BudgetExceedType.GLOBAL_MONTHLY -> sharedPreferences.getBoolean("anggaran_bulanan_terlewati", true)
-                        }
-                        
-                        if (isEnabled) {
-                            val title = when (result.type) {
-                                BudgetExceedType.DAILY -> "Batas Anggaran Harian Terlewati!"
-                                BudgetExceedType.WEEKLY -> "Batas Anggaran Mingguan Terlewati!"
-                                BudgetExceedType.MONTHLY -> "Batas Anggaran Bulanan Terlewati!"
-                                BudgetExceedType.GLOBAL_MONTHLY -> "Total Anggaran Bulanan Terlewati!"
-                            }
-                            
-                            val catName = result.categoryName ?: "Seluruh Kategori (Global)"
-                            val formatter = java.text.DecimalFormat("#,###", java.text.DecimalFormatSymbols(java.util.Locale.Builder().setLanguage("id").setRegion("ID").build()))
-                            val spentFormatted = formatter.format(result.spentAmount).replace(',', '.')
-                            val limitFormatted = formatter.format(result.budgetLimit).replace(',', '.')
-                            val message = "Pengeluaran untuk $catName mencapai Rp $spentFormatted (Batas: Rp $limitFormatted)."
-                            
-                            NotificationHelper.showBudgetNotification(
-                                context = context,
-                                title = title,
-                                message = message,
-                                notificationId = result.type.ordinal
-                            )
-                        }
-                    }
-                }
-                
+
                 _state.update { it.copy(isSaving = false, saveSuccess = true) }
             } catch (e: Exception) {
                 _state.update { it.copy(isSaving = false, error = e.message ?: "Failed to save") }
             }
+        }
+    }
+
+    fun deleteTransaction(transactionId: String, onComplete: () -> Unit) {
+        viewModelScope.launch {
+            deleteTransactionUseCase(transactionId)
+            onComplete()
         }
     }
 }

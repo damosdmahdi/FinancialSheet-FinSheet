@@ -56,9 +56,11 @@ fun HistoryScreen(
     /* ---- Local UI state ---- */
     var showDatePicker          by remember { mutableStateOf(false) }
     var isSyncing               by remember { mutableStateOf(false) }
+    // Key diincrement saat Reset agar DateRangePickerState recreate (seleksi hilang)
+    var datePickerKey           by remember { mutableIntStateOf(0) }
 
     // Rentang tanggal dari DateRangePicker
-    val dateRangePickerState = rememberDateRangePickerState()
+    val dateRangePickerState = key(datePickerKey) { rememberDateRangePickerState() }
     val dateRangeText = remember(
         dateRangePickerState.selectedStartDateMillis,
         dateRangePickerState.selectedEndDateMillis
@@ -66,10 +68,10 @@ fun HistoryScreen(
         val start = dateRangePickerState.selectedStartDateMillis
         val end   = dateRangePickerState.selectedEndDateMillis
         when {
-            start != null && end != null ->
+            start != null && end != null && start != end ->
                 "${formatDateMillis(start)} - ${formatDateMillis(end)}"
             start != null ->
-                "${formatDateMillis(start)} - ..."
+                formatDateMillis(start)
             else ->
                 "Pilih Rentang Waktu"
         }
@@ -84,13 +86,29 @@ fun HistoryScreen(
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
             confirmButton = {
-                TextButton(onClick = { showDatePicker = false }) {
+                TextButton(onClick = { 
+                    showDatePicker = false 
+                    viewModel.setDateRange(
+                        dateRangePickerState.selectedStartDateMillis,
+                        dateRangePickerState.selectedEndDateMillis
+                    )
+                }) {
                     Text("Pilih")
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) {
-                    Text("Batal")
+                Row {
+                    TextButton(onClick = {
+                        showDatePicker = false
+                        datePickerKey++                               // reset local picker state
+                        viewModel.setDateRange(null, null)            // hapus filter tanggal
+                        viewModel.setFilter(TransactionFilter.SEMUA)  // kembalikan ke "Semua"
+                    }) {
+                        Text("Reset")
+                    }
+                    TextButton(onClick = { showDatePicker = false }) {
+                        Text("Batal")
+                    }
                 }
             }
         ) {

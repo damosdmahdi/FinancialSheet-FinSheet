@@ -175,6 +175,7 @@ object Injection {
         return com.mobileprogramming.finsheet.ui.features.addtransaction.TransactionViewModelFactory(
             addTransactionUseCase = com.mobileprogramming.finsheet.domain.usecase.AddTransactionUseCase(transactionRepo),
             updateTransactionUseCase = com.mobileprogramming.finsheet.domain.usecase.UpdateTransactionUseCase(transactionRepo),
+            deleteTransactionUseCase = com.mobileprogramming.finsheet.domain.usecase.transaction.DeleteTransactionUseCase(transactionRepo),
             getTransactionByIdUseCase = com.mobileprogramming.finsheet.domain.usecase.GetTransactionByIdUseCase(transactionRepo),
             getCategoriesByTypeUseCase = com.mobileprogramming.finsheet.domain.usecase.GetCategoriesByTypeUseCase(categoryRepo),
             addCategoryUseCase = com.mobileprogramming.finsheet.domain.usecase.AddCategoryUseCase(categoryRepo),

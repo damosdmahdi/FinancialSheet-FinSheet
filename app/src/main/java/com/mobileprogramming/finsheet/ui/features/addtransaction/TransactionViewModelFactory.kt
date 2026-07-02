@@ -15,6 +15,7 @@ import com.mobileprogramming.finsheet.domain.usecase.budget.CheckTransactionBudg
 class TransactionViewModelFactory(
     private val addTransactionUseCase: AddTransactionUseCase,
     private val updateTransactionUseCase: UpdateTransactionUseCase,
+    private val deleteTransactionUseCase: com.mobileprogramming.finsheet.domain.usecase.transaction.DeleteTransactionUseCase,
     private val getTransactionByIdUseCase: GetTransactionByIdUseCase,
     private val getCategoriesByTypeUseCase: GetCategoriesByTypeUseCase,
     private val addCategoryUseCase: AddCategoryUseCase,
@@ -31,6 +32,7 @@ class TransactionViewModelFactory(
                 AddEditTransactionViewModel(
                     addTransactionUseCase,
                     updateTransactionUseCase,
+                    deleteTransactionUseCase,
                     getTransactionByIdUseCase,
                     getCategoriesByTypeUseCase,
                     getActiveCurrencyFlowUseCase,

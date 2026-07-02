@@ -160,6 +160,7 @@ fun AddTransactionScreen(
     /* ---- Local UI state ---- */
     var selectedCurrency by remember { mutableStateOf("IDR") }
     var currencyDropdownExpanded by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
 
     // DatePicker state
     var showDatePicker by remember { mutableStateOf(false) }
@@ -190,6 +191,7 @@ fun AddTransactionScreen(
     // Gunakan URI dari state ViewModel, agar tersimpan ke database!
     val selectedImageUri = state.receiptLocalPath?.let { Uri.parse(it) }
     var showImageSourceDialog by remember { mutableStateOf(false) }
+    var showFullImageDialog by remember { mutableStateOf(false) }
 
     // URI sementara untuk foto kamera (Gunakan rememberSaveable agar tidak hilang saat activity mati)
     var cameraImageUriString by rememberSaveable { mutableStateOf<String?>(null) }
@@ -266,11 +268,80 @@ fun AddTransactionScreen(
                     containerColor = MaterialTheme.colorScheme.surface,
                     titleContentColor = MaterialTheme.colorScheme.onSurface,
                     navigationIconContentColor = MaterialTheme.colorScheme.onSurface
-                )
+                ),
+                actions = {
+                    if (state.isEditMode) {
+                        IconButton(onClick = { showDeleteDialog = true }) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "Hapus Transaksi",
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    }
+                }
             )
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
+
+        // ---- Dialog Konfirmasi Hapus ----
+        if (showDeleteDialog) {
+            AlertDialog(
+                onDismissRequest = { showDeleteDialog = false },
+                icon = {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                },
+                title = {
+                    Text(
+                        text = "Hapus Transaksi?",
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.Bold
+                        )
+                    )
+                },
+                text = {
+                    Text(
+                        text = "Transaksi ini akan dihapus secara permanen dan tidak dapat dikembalikan.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            showDeleteDialog = false
+                            if (state.transactionId != null) {
+                                viewModel.deleteTransaction(state.transactionId!!) {
+                                    onNavigateBack()
+                                }
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error,
+                            contentColor = MaterialTheme.colorScheme.onError
+                        ),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text("Hapus", fontWeight = FontWeight.SemiBold)
+                    }
+                },
+                dismissButton = {
+                    OutlinedButton(
+                        onClick = { showDeleteDialog = false },
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text("Batal")
+                    }
+                },
+                shape = RoundedCornerShape(16.dp)
+            )
+        }
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -512,12 +583,54 @@ fun AddTransactionScreen(
                         decodeBitmapWithCorrectOrientation(context, uri)?.asImageBitmap()
                     }
                 }
+                // Dialog fullscreen gambar
+                if (showFullImageDialog && imageBitmap != null) {
+                    androidx.compose.ui.window.Dialog(
+                        onDismissRequest = { showFullImageDialog = false },
+                        properties = androidx.compose.ui.window.DialogProperties(
+                            usePlatformDefaultWidth = false
+                        )
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color.Black)
+                                .clickable { showFullImageDialog = false },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Image(
+                                bitmap = imageBitmap,
+                                contentDescription = "Foto Transaksi Fullscreen",
+                                contentScale = ContentScale.Fit,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                            IconButton(
+                                onClick = { showFullImageDialog = false },
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(16.dp)
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.Black.copy(alpha = 0.6f))
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Close,
+                                    contentDescription = "Tutup",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+
                 // Preview foto yang dipilih
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(160.dp)
                         .clip(RoundedCornerShape(14.dp))
+                        .clickable { if (imageBitmap != null) showFullImageDialog = true }
                 ) {
                     imageBitmap?.let {
                         Image(

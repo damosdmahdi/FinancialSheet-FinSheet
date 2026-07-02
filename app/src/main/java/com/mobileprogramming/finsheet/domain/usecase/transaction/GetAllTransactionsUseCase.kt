@@ -21,12 +21,14 @@ class GetAllTransactionsUseCase(
                     id = tx.id,
                     title = tx.notes?.takeIf { it.isNotBlank() } ?: category?.categoryName ?: "Transaksi",
                     timeMillis = tx.transactionDate,
+                    createdAt = tx.createdAt,
                     categoryName = category?.categoryName ?: "Lainnya",
                     iconName = category?.icon,
                     colorHex = category?.color,
                     amount = tx.amount,
                     isExpense = tx.transactionType == "EXPENSE",
-                    transactionDate = tx.transactionDate
+                    transactionDate = tx.transactionDate,
+                    receiptLocalPath = tx.receiptLocalPath
                 )
             }.sortedByDescending { it.transactionDate }
         }

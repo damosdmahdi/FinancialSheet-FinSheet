@@ -12,6 +12,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DirectionsBus
 import androidx.compose.material.icons.filled.Edit
@@ -59,9 +60,10 @@ data class BudgetCategoryState(
 )
 
 data class BudgetUiState(
-    val totalBudget: String = "3500000",
+    val totalBudget: String = "0",
     val unallocatedBudget: String = "0",
     val isEditing: Boolean = false,
+    val isEditingTotalBudget: Boolean = false,
     val categories: List<BudgetCategoryState> = emptyList(),
     val activeCurrency: com.mobileprogramming.finsheet.data.local.entity.CurrencyEntity? = null
 )
@@ -82,7 +84,7 @@ class BudgetViewModel(
     }
 
     private fun loadData() {
-        val totalMonthly = sharedPreferences.getLong("total_monthly_budget", 3500000L)
+        val totalMonthly = sharedPreferences.getLong("total_monthly_budget", 0L)
         _uiState.update { it.copy(totalBudget = totalMonthly.toString()) }
 
         viewModelScope.launch {
@@ -121,6 +123,10 @@ class BudgetViewModel(
 
     fun toggleEditMode() {
         _uiState.update { it.copy(isEditing = !it.isEditing) }
+    }
+
+    fun toggleEditTotalBudgetMode() {
+        _uiState.update { it.copy(isEditingTotalBudget = !it.isEditingTotalBudget) }
     }
 
     fun updateTotalBudget(newAmount: String) {
@@ -289,13 +295,30 @@ fun BudgetScreen(
                             modifier = Modifier.padding(16.dp)
                         ) {
                             Column(modifier = Modifier.fillMaxWidth()) {
-                                Text(
-                                    text = "Total Anggaran Bulanan",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "Total Anggaran Bulanan",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    IconButton(
+                                        onClick = { viewModel.toggleEditTotalBudgetMode() },
+                                        modifier = Modifier.size(24.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = if (uiState.isEditingTotalBudget) Icons.Filled.Check else Icons.Filled.Edit,
+                                            contentDescription = if (uiState.isEditingTotalBudget) "Simpan" else "Ubah",
+                                            modifier = Modifier.size(16.dp),
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                }
                                 Spacer(modifier = Modifier.height(4.dp))
-                                if (uiState.isEditing) {
+                                if (uiState.isEditingTotalBudget) {
                                     OutlinedTextField(
                                         value = uiState.totalBudget,
                                         onValueChange = { viewModel.updateTotalBudget(it) },
@@ -491,11 +514,20 @@ fun BudgetCategoryItem(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    val iconBgColor = if (!category.colorHex.isNullOrBlank())
+                        CategoryIconMapper.getBackgroundColorByHex(category.colorHex)
+                    else
+                        MaterialTheme.colorScheme.secondaryContainer
+                    val iconTintColor = if (!category.colorHex.isNullOrBlank())
+                        CategoryIconMapper.getColorByHex(category.colorHex)
+                    else
+                        MaterialTheme.colorScheme.onSecondaryContainer
+
                     Box(
                         modifier = Modifier
                             .size(40.dp)
                             .background(
-                                color = MaterialTheme.colorScheme.secondaryContainer,
+                                color = iconBgColor,
                                 shape = CircleShape
                             ),
                         contentAlignment = Alignment.Center
@@ -503,7 +535,7 @@ fun BudgetCategoryItem(
                         Icon(
                             imageVector = category.icon,
                             contentDescription = category.name,
-                            tint = MaterialTheme.colorScheme.onSecondaryContainer
+                            tint = iconTintColor
                         )
                     }
                     Spacer(modifier = Modifier.width(12.dp))
