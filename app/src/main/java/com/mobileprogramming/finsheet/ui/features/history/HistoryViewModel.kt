@@ -1,5 +1,6 @@
 package com.mobileprogramming.finsheet.ui.features.history
 
+import android.content.SharedPreferences
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mobileprogramming.finsheet.domain.model.TransactionItemModel
@@ -10,7 +11,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -41,16 +41,24 @@ data class TransactionItemUI(
 enum class TransactionFilter { SEMUA, PENGELUARAN, PEMASUKAN }
 
 class HistoryViewModel(
-    private val getAllTransactionsUseCase: GetAllTransactionsUseCase
+    private val getAllTransactionsUseCase: GetAllTransactionsUseCase,
+    private val sharedPreferences: SharedPreferences
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HistoryUiState())
     val uiState: StateFlow<HistoryUiState> = _uiState.asStateFlow()
 
     private var allTransactions: List<TransactionItemModel> = emptyList()
+    private var currencyCode = "IDR"
 
     init {
+        refresh()
         loadTransactions()
+    }
+
+    fun refresh() {
+        currencyCode = sharedPreferences.getString("main_currency", "IDR") ?: "IDR"
+        updateFilteredTransactions()
     }
 
     private fun loadTransactions() {
@@ -73,9 +81,6 @@ class HistoryViewModel(
     }
 
     private fun updateFilteredTransactions() {
-        val format = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
-        format.maximumFractionDigits = 0
-
         val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
 
         val filtered = when (_uiState.value.selectedFilter) {
@@ -94,7 +99,7 @@ class HistoryViewModel(
                 dateLabel = dateLabel,
                 items = txList.map { tx ->
                     val sign = if (tx.isExpense) "-" else "+"
-                    val amountStr = format.format(tx.amount).replace("Rp", "Rp ")
+                    val amountStr = com.mobileprogramming.finsheet.core.utils.CurrencyFormatter.format(tx.amount.toDouble(), currencyCode)
                     TransactionItemUI(
                         id = tx.id,
                         title = tx.title,
@@ -108,7 +113,7 @@ class HistoryViewModel(
                     )
                 }.sortedByDescending { it.timeMillis }
             )
-        }
+        }.sortedByDescending { it.items.firstOrNull()?.timeMillis ?: 0L }
 
         _uiState.update { it.copy(
             transactions = groups,

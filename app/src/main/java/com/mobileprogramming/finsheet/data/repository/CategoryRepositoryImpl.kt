@@ -19,4 +19,11 @@ class CategoryRepositoryImpl(private val categoryDao: CategoryDao) : CategoryRep
     override suspend fun updateCategory(category: CategoryEntity) {
         categoryDao.updateCategory(category)
     }
+
+    override suspend fun deleteCategory(id: String) {
+        categoryDao.softDeleteCategory(id, System.currentTimeMillis())
+    }
+
+    override suspend fun getCategoryById(id: String): CategoryEntity? =
+        categoryDao.getCategoryById(id)
 }

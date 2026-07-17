@@ -30,21 +30,36 @@ import androidx.compose.ui.unit.dp
 // ---------------------------------------------------------------------------
 
 private data class IconOption(
-    val label: String,
     val iconName: String,
     val icon: ImageVector
 )
 
-/** 8 ikon sesuai desain, tersusun dalam 2 baris × 4 kolom */
 private val availableIcons = listOf(
-    IconOption("Makan",   "Restaurant", Icons.Outlined.Restaurant),
-    IconOption("Mobil",   "DirectionsCar", Icons.Outlined.DirectionsCar),
-    IconOption("Buku",    "MenuBook", Icons.AutoMirrored.Outlined.MenuBook),
-    IconOption("Belanja", "ShoppingCart", Icons.Outlined.ShoppingCart),
-    IconOption("Sehat",   "HealthAndSafety", Icons.Outlined.HealthAndSafety),
-    IconOption("Game",    "SportsEsports", Icons.Outlined.SportsEsports),
-    IconOption("Rumah",   "Home", Icons.Outlined.Home),
-    IconOption("Travel",  "FlightTakeoff", Icons.Outlined.FlightTakeoff)
+    // Kategori khusus dari user
+    IconOption("WaterDrop", Icons.Outlined.WaterDrop),
+    IconOption("Bolt", Icons.Outlined.Bolt),
+    IconOption("Build", Icons.Outlined.Build),
+    IconOption("Savings", Icons.Outlined.Savings),
+    IconOption("LocalGasStation", Icons.Outlined.LocalGasStation),
+    IconOption("Shield", Icons.Outlined.Shield),
+    IconOption("Bed", Icons.Outlined.Bed),
+    IconOption("Wifi", Icons.Outlined.Wifi),
+    IconOption("DirectionsBus", Icons.Outlined.DirectionsBus),
+    
+    // Kategori umum bawaan & populer
+    IconOption("Restaurant", Icons.Outlined.Restaurant),
+    IconOption("DirectionsCar", Icons.Outlined.DirectionsCar),
+    IconOption("MenuBook", Icons.AutoMirrored.Outlined.MenuBook),
+    IconOption("ShoppingCart", Icons.Outlined.ShoppingCart),
+    IconOption("HealthAndSafety", Icons.Outlined.HealthAndSafety),
+    IconOption("SportsEsports", Icons.Outlined.SportsEsports),
+    IconOption("Home", Icons.Outlined.Home),
+    IconOption("FlightTakeoff", Icons.Outlined.FlightTakeoff),
+    IconOption("School", Icons.Outlined.School),
+    IconOption("AccountBalanceWallet", Icons.Outlined.AccountBalanceWallet),
+    IconOption("Laptop", Icons.Outlined.Laptop),
+    IconOption("CardGiftcard", Icons.Outlined.CardGiftcard),
+    IconOption("Storefront", Icons.Outlined.Storefront)
 )
 
 /** 7 warna sesuai desain: baris 1 = 5 warna, baris 2 = 2 warna */
@@ -66,12 +81,14 @@ private val availableColors = listOf(
 @Composable
 fun AddCategoryScreen(
     viewModel: AddCategoryViewModel,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    onCategorySaved: (String) -> Unit = {}
 ) {
     val state by viewModel.state.collectAsState()
     
     LaunchedEffect(state.saveSuccess) {
         if (state.saveSuccess) {
+            state.createdCategoryId?.let { onCategorySaved(it) }
             onNavigateBack()
         }
     }
@@ -83,7 +100,7 @@ fun AddCategoryScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "Tambah Kategori",
+                        text = if (state.isEditMode) "Ubah Kategori" else "Tambah Kategori",
                         style = MaterialTheme.typography.titleLarge.copy(
                             fontWeight = FontWeight.Bold
                         )
@@ -109,7 +126,8 @@ fun AddCategoryScreen(
             AddCategoryBottomBar(
                 onCancel = onNavigateBack,
                 onSave   = { viewModel.saveCategory() },
-                primaryBlue = primaryBlue
+                primaryBlue = primaryBlue,
+                isEditMode = state.isEditMode
             )
         }
     ) { paddingValues ->
@@ -269,8 +287,6 @@ private fun IconGridItem(
                       else MaterialTheme.colorScheme.surface
     val iconTint    = if (isSelected) selectedColor
                       else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f)
-    val textColor   = if (isSelected) selectedColor
-                      else MaterialTheme.colorScheme.onSurface
 
     Column(
         modifier = Modifier
@@ -279,26 +295,15 @@ private fun IconGridItem(
             .background(bgColor)
             .border(borderWidth, borderColor, RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
-            .padding(vertical = 8.dp, horizontal = 4.dp),
+            .padding(8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         Icon(
             imageVector        = option.icon,
-            contentDescription = option.label,
-            modifier           = Modifier.size(26.dp),
+            contentDescription = null,
+            modifier           = Modifier.size(28.dp),
             tint               = iconTint
-        )
-        Spacer(modifier = Modifier.height(5.dp))
-        Text(
-            text     = option.label,
-            style    = MaterialTheme.typography.labelSmall.copy(
-                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                color      = textColor
-            ),
-            textAlign = TextAlign.Center,
-            maxLines  = 1,
-            overflow  = TextOverflow.Ellipsis
         )
     }
 }
@@ -364,7 +369,8 @@ private fun ColorSwatch(
 private fun AddCategoryBottomBar(
     onCancel: () -> Unit,
     onSave: () -> Unit,
-    primaryBlue: Color
+    primaryBlue: Color,
+    isEditMode: Boolean
 ) {
     Surface(
         modifier        = Modifier.fillMaxWidth(),
@@ -409,7 +415,7 @@ private fun AddCategoryBottomBar(
                 )
             ) {
                 Text(
-                    text  = "Simpan Kategori",
+                    text  = if (isEditMode) "Simpan Perubahan" else "Simpan Kategori",
                     style = MaterialTheme.typography.labelLarge.copy(
                         fontWeight = FontWeight.Bold
                     )

@@ -10,7 +10,7 @@ sealed class Screen {
     @Serializable
     object SelectCategory : Screen()
     @Serializable
-    object AddCategory : Screen()
+    data class AddCategory(val categoryId: String? = null) : Screen()
     @Serializable
     object History : Screen()
     @Serializable

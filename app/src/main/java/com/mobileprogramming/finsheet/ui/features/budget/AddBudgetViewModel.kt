@@ -44,6 +44,12 @@ class AddBudgetViewModel(
             onComplete()
         }
     }
+
+    fun deleteCategory(categoryId: String) {
+        viewModelScope.launch {
+            categoryRepository.deleteCategory(categoryId)
+        }
+    }
 }
 
 class AddBudgetViewModelFactory(

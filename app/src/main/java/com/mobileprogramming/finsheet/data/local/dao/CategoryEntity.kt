@@ -25,6 +25,9 @@ interface CategoryDao {
     @Query("UPDATE categories SET deleted_at = :timestamp, sync_status = 'PENDING' WHERE id = :id")
     suspend fun softDeleteCategory(id: String, timestamp: Long)
 
+    @Query("SELECT * FROM categories WHERE id = :id LIMIT 1")
+    suspend fun getCategoryById(id: String): CategoryEntity?
+
     // Ambil semua kategori yang aktif (untuk ditampilkan di Spinner/Dropdown UI)
     @Query("SELECT * FROM categories WHERE deleted_at IS NULL ORDER BY category_name ASC")
     fun getAllActiveCategories(): Flow<List<CategoryEntity>>

@@ -88,7 +88,6 @@ fun FinSheetNavGraph(
 
         composable<Screen.AddTransaction> { backStackEntry ->
             val args = backStackEntry.arguments
-            val transactionId = args?.getString("transactionId") // Need to extract from savedStateHandle or args? Wait, with serialization it's backStackEntry.toRoute<Screen.AddTransaction>(). Let's use toRoute
             val route = backStackEntry.toRoute<Screen.AddTransaction>()
             val context = androidx.compose.ui.platform.LocalContext.current
             val viewModel: com.mobileprogramming.finsheet.ui.features.addtransaction.AddEditTransactionViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
@@ -104,7 +103,7 @@ fun FinSheetNavGraph(
                     navController.navigate(Screen.SelectCategory)
                 },
                 onNavigateToAddCategory = {
-                    navController.navigate(Screen.AddCategory)
+                    navController.navigate(Screen.AddCategory())
                 }
             )
         }
@@ -122,19 +121,29 @@ fun FinSheetNavGraph(
                 viewModel = viewModel,
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToAddCategory = {
-                    navController.navigate(Screen.AddCategory)
+                    navController.navigate(Screen.AddCategory())
+                },
+                onNavigateToEditCategory = { categoryId ->
+                    navController.navigate(Screen.AddCategory(categoryId = categoryId))
                 }
             )
         }
 
-        composable<Screen.AddCategory> {
+        composable<Screen.AddCategory> { backStackEntry ->
+            val route = backStackEntry.toRoute<Screen.AddCategory>()
             val context = androidx.compose.ui.platform.LocalContext.current
             val viewModel: com.mobileprogramming.finsheet.ui.features.addtransaction.AddCategoryViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
                 factory = com.mobileprogramming.finsheet.di.Injection.provideTransactionViewModelFactory(context)
             )
+            androidx.compose.runtime.LaunchedEffect(route.categoryId) {
+                viewModel.initForEdit(route.categoryId)
+            }
             AddCategoryScreen(
                 viewModel = viewModel,
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = { navController.popBackStack() },
+                onCategorySaved = { categoryId ->
+                    navController.previousBackStackEntry?.savedStateHandle?.set("new_category_id", categoryId)
+                }
             )
         }
         
@@ -187,12 +196,16 @@ fun FinSheetNavGraph(
             )
         }
 
-        composable<Screen.AddBudget> {
+        composable<Screen.AddBudget> { backStackEntry ->
             AddBudgetScreen(
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToAddCategory = {
-                    navController.navigate(Screen.AddCategory)
-                }
+                    navController.navigate(Screen.AddCategory())
+                },
+                onNavigateToEditCategory = { categoryId ->
+                    navController.navigate(Screen.AddCategory(categoryId = categoryId))
+                },
+                savedStateHandle = backStackEntry.savedStateHandle
             )
         }
     }

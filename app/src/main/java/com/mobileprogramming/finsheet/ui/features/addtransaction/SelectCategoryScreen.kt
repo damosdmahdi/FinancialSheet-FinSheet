@@ -12,6 +12,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -51,13 +53,38 @@ private data class SelectableCategoryItem(
 fun SelectCategoryScreen(
     viewModel: AddEditTransactionViewModel,
     onNavigateBack: () -> Unit,
-    onNavigateToAddCategory: () -> Unit
+    onNavigateToAddCategory: () -> Unit,
+    onNavigateToEditCategory: (String) -> Unit
 ) {
     val state by viewModel.state.collectAsState()
     
     /* ---- Local UI state ---- */
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategoryEntity by remember { mutableStateOf<com.mobileprogramming.finsheet.data.local.entity.CategoryEntity?>(null) }
+    var categoryToDelete by remember { mutableStateOf<com.mobileprogramming.finsheet.data.local.entity.CategoryEntity?>(null) }
+
+    if (categoryToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { categoryToDelete = null },
+            title = { Text("Hapus Kategori") },
+            text = { Text("Apakah Anda yakin ingin menghapus kategori \"${categoryToDelete?.categoryName}\"? Semua alokasi anggaran dan riwayat transaksi untuk kategori ini akan terpengaruh.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        categoryToDelete?.let { viewModel.deleteCategory(it.id) }
+                        categoryToDelete = null
+                    }
+                ) {
+                    Text("Hapus", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { categoryToDelete = null }) {
+                    Text("Batal")
+                }
+            }
+        )
+    }
 
     val primaryBlue = Color(0xFF1A5BEB)
 
@@ -201,6 +228,8 @@ fun SelectCategoryScreen(
                     item = item,
                     isSelected = selectedCategoryEntity?.id == item.entity.id,
                     primaryBlue = primaryBlue,
+                    onEdit = { onNavigateToEditCategory(item.entity.id) },
+                    onDelete = { categoryToDelete = item.entity },
                     onClick = { selectedCategoryEntity = item.entity }
                 )
             }
@@ -322,6 +351,8 @@ private fun SelectableCategoryGridItem(
     item: SelectableCategoryItem,
     isSelected: Boolean,
     primaryBlue: Color,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
     onClick: () -> Unit
 ) {
     val borderColor = if (isSelected) primaryBlue
@@ -330,38 +361,72 @@ private fun SelectableCategoryGridItem(
     val bgColor = if (isSelected) primaryBlue.copy(alpha = 0.08f)
     else MaterialTheme.colorScheme.surface
 
-    Column(
-        modifier = Modifier
-            .aspectRatio(1f)
-            .clip(RoundedCornerShape(14.dp))
-            .background(bgColor)
-            .border(
-                width = if (isSelected) 1.5.dp else 1.dp,
-                color = borderColor,
-                shape = RoundedCornerShape(14.dp)
+    Box(modifier = Modifier.aspectRatio(1f)) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .clip(RoundedCornerShape(14.dp))
+                .background(bgColor)
+                .border(
+                    width = if (isSelected) 1.5.dp else 1.dp,
+                    color = borderColor,
+                    shape = RoundedCornerShape(14.dp)
+                )
+                .clickable(onClick = onClick)
+                .padding(vertical = 10.dp, horizontal = 4.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                imageVector = item.icon,
+                contentDescription = item.label,
+                modifier = Modifier.size(28.dp),
+                tint = if (isSelected) primaryBlue else item.tint
             )
-            .clickable(onClick = onClick)
-            .padding(vertical = 10.dp, horizontal = 4.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Icon(
-            imageVector = item.icon,
-            contentDescription = item.label,
-            modifier = Modifier.size(28.dp),
-            tint = if (isSelected) primaryBlue else item.tint
-        )
-        Spacer(modifier = Modifier.height(6.dp))
-        Text(
-            text = item.label,
-            style = MaterialTheme.typography.labelSmall.copy(
-                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                color = if (isSelected) primaryBlue
-                else MaterialTheme.colorScheme.onSurface
-            ),
-            textAlign = TextAlign.Center,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = item.label,
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                    color = if (isSelected) primaryBlue
+                    else MaterialTheme.colorScheme.onSurface
+                ),
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+
+        if (item.entity.categoryName != "Lainnya") {
+            IconButton(
+                onClick = onEdit,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .size(30.dp)
+                    .padding(4.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Edit,
+                    contentDescription = "Edit Kategori",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+
+            IconButton(
+                onClick = onDelete,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .size(30.dp)
+                    .padding(4.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Delete,
+                    contentDescription = "Hapus Kategori",
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+        }
     }
 }

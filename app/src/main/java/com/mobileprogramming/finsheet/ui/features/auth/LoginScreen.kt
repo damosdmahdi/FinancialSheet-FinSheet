@@ -65,7 +65,7 @@ fun LoginScreen(
         if (isLoading) {
             CircularProgressIndicator()
         } else {
-            Button(
+            OutlinedButton(
                 onClick = {
                     coroutineScope.launch {
                         isLoading = true
@@ -81,9 +81,32 @@ fun LoginScreen(
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(50.dp)
+                    .height(50.dp),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, androidx.compose.ui.graphics.Color(0xFFE0E0E0)),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    containerColor = androidx.compose.ui.graphics.Color.White,
+                    contentColor = androidx.compose.ui.graphics.Color(0xFF1F1F1F)
+                )
             ) {
-                Text(text = "Sign in with Google", fontSize = 16.sp)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        painter = painterResource(id = com.mobileprogramming.finsheet.R.drawable.ic_google_logo),
+                        contentDescription = "Google Logo",
+                        tint = androidx.compose.ui.graphics.Color.Unspecified,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = "Masuk dengan Google",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = androidx.compose.ui.graphics.Color(0xFF1F1F1F)
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(16.dp))

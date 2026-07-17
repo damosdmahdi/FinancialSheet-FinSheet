@@ -16,6 +16,17 @@ import androidx.compose.ui.unit.dp
 fun ReportScreen(
     onNavigateBack: () -> Unit
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val sharedPreferences = androidx.compose.runtime.remember {
+        context.getSharedPreferences("finsheet_prefs", android.content.Context.MODE_PRIVATE)
+    }
+    val selectedCurrency = androidx.compose.runtime.remember {
+        sharedPreferences.getString("main_currency", "IDR") ?: "IDR"
+    }
+    val formattedAmount = androidx.compose.runtime.remember(selectedCurrency) {
+        com.mobileprogramming.finsheet.core.utils.CurrencyFormatter.format(1450000L, selectedCurrency)
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -57,7 +68,7 @@ fun ReportScreen(
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                         Text(
-                            text = "Rp 1.450.000",
+                            text = formattedAmount,
                             style = MaterialTheme.typography.headlineLarge,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onPrimaryContainer

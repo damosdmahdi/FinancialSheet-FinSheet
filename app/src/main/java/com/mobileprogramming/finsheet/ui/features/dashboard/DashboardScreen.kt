@@ -51,11 +51,14 @@ import com.mobileprogramming.finsheet.ui.components.CategoryExpenseItem
 import com.mobileprogramming.finsheet.ui.components.FilterChipsRow
 import com.mobileprogramming.finsheet.ui.features.addtransaction.CategoryIconMapper
 
+import androidx.compose.runtime.LaunchedEffect
+
 @Composable
 fun DashboardScreen(
     viewModel: DashboardViewModel = viewModel(
         factory = DashboardViewModelFactory(
-            Injection.provideGetDashboardDataUseCase(LocalContext.current.applicationContext)
+            useCase = Injection.provideGetDashboardDataUseCase(LocalContext.current.applicationContext),
+            sharedPreferences = Injection.provideSharedPreferences(LocalContext.current.applicationContext)
         )
     ),
     onNavigateToAddTransaction: () -> Unit,
@@ -65,6 +68,10 @@ fun DashboardScreen(
     onNavigateToAnggaran: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    LaunchedEffect(Unit) {
+        viewModel.refresh()
+    }
 
     Scaffold(
         bottomBar = {

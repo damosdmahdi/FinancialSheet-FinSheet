@@ -16,8 +16,11 @@ data class SettingsUiState(
     val anggaranHarian: Boolean = true,
     val anggaranMingguan: Boolean = true,
     val anggaranBulanan: Boolean = true,
-    val selectedGoogleSheet: String = "Belum terhubung ke Google Sheet",
+    val selectedGoogleSheet: String = "FinSheet_Dashboard",
+    val selectedCurrency: String = "IDR",
     val isUserLoggedIn: Boolean = false,
+    val isGuestMode: Boolean = false,
+    val hasSyncedSpreadsheet: Boolean = false,
     val userDisplayName: String? = null,
     val userEmail: String? = null,
     val userPhotoUrl: String? = null,
@@ -46,8 +49,10 @@ class SettingsViewModel(
         val dailyBudget = sharedPreferences.getBoolean("anggaran_harian_terlewati", true)
         val weeklyBudget = sharedPreferences.getBoolean("anggaran_mingguan_terlewati", true)
         val monthlyBudget = sharedPreferences.getBoolean("anggaran_bulanan_terlewati", true)
-        val sheetName = sharedPreferences.getString("google_sheet_name", "Belum terhubung ke Google Sheet") ?: "Belum terhubung ke Google Sheet"
+        val sheetName = sharedPreferences.getString("google_sheet_name", "FinSheet_Dashboard") ?: "FinSheet_Dashboard"
         val customPhoto = sharedPreferences.getString("custom_profile_photo", null)
+        val currency = sharedPreferences.getString("main_currency", "IDR") ?: "IDR"
+        val hasSynced = sharedPreferences.getBoolean("has_synced_spreadsheet", false)
         
         _uiState.update { currentState ->
             currentState.copy(
@@ -55,23 +60,41 @@ class SettingsViewModel(
                 anggaranMingguan = weeklyBudget,
                 anggaranBulanan = monthlyBudget,
                 selectedGoogleSheet = sheetName,
-                customProfilePhotoPath = customPhoto
+                customProfilePhotoPath = customPhoto,
+                selectedCurrency = currency,
+                hasSyncedSpreadsheet = hasSynced
             )
         }
+    }
+
+    fun refreshSettings() {
+        loadPreferences()
     }
 
     private fun updateUserState(user: FirebaseUser?) {
         _uiState.update { currentState ->
             if (user != null) {
-                currentState.copy(
-                    isUserLoggedIn = true,
-                    userDisplayName = user.displayName ?: user.email?.substringBefore("@"),
-                    userEmail = user.email,
-                    userPhotoUrl = user.photoUrl?.toString()
-                )
+                if (user.isAnonymous) {
+                    currentState.copy(
+                        isUserLoggedIn = false,
+                        isGuestMode = true,
+                        userDisplayName = "Tamu Finshett (Honoratus)",
+                        userEmail = "Mode Guest",
+                        userPhotoUrl = null
+                    )
+                } else {
+                    currentState.copy(
+                        isUserLoggedIn = true,
+                        isGuestMode = false,
+                        userDisplayName = user.displayName ?: user.email?.substringBefore("@"),
+                        userEmail = user.email,
+                        userPhotoUrl = user.photoUrl?.toString()
+                    )
+                }
             } else {
                 currentState.copy(
                     isUserLoggedIn = false,
+                    isGuestMode = false,
                     userDisplayName = null,
                     userEmail = null,
                     userPhotoUrl = null
@@ -98,6 +121,11 @@ class SettingsViewModel(
     fun setGoogleSheetName(value: String) {
         sharedPreferences.edit().putString("google_sheet_name", value).apply()
         _uiState.update { it.copy(selectedGoogleSheet = value) }
+    }
+
+    fun setCurrency(value: String) {
+        sharedPreferences.edit().putString("main_currency", value).apply()
+        _uiState.update { it.copy(selectedCurrency = value) }
     }
 
     fun saveCustomProfilePhoto(context: android.content.Context, uri: android.net.Uri) {

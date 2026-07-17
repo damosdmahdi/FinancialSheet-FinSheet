@@ -38,6 +38,7 @@ class AddEditTransactionViewModel(
     private val updateTransactionUseCase: UpdateTransactionUseCase,
     private val getTransactionByIdUseCase: GetTransactionByIdUseCase,
     private val getCategoriesByTypeUseCase: GetCategoriesByTypeUseCase,
+    private val deleteCategoryUseCase: com.mobileprogramming.finsheet.domain.usecase.DeleteCategoryUseCase,
     private val checkTransactionBudgetLimitUseCase: CheckTransactionBudgetLimitUseCase,
     private val sharedPreferences: SharedPreferences,
     private val context: Context
@@ -194,6 +195,16 @@ class AddEditTransactionViewModel(
                 _state.update { it.copy(isSaving = false, saveSuccess = true) }
             } catch (e: Exception) {
                 _state.update { it.copy(isSaving = false, error = e.message ?: "Failed to save") }
+            }
+        }
+    }
+
+    fun deleteCategory(categoryId: String) {
+        viewModelScope.launch {
+            try {
+                deleteCategoryUseCase(categoryId)
+            } catch (e: Exception) {
+                _state.update { it.copy(error = e.message ?: "Failed to delete category") }
             }
         }
     }

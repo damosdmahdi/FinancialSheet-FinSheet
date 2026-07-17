@@ -110,6 +110,12 @@ object Injection {
         )
     }
 
+    fun provideDeleteCategoryUseCase(context: Context): com.mobileprogramming.finsheet.domain.usecase.DeleteCategoryUseCase {
+        return com.mobileprogramming.finsheet.domain.usecase.DeleteCategoryUseCase(
+            provideCategoryRepository(context)
+        )
+    }
+
     fun provideTransactionViewModelFactory(context: Context): com.mobileprogramming.finsheet.ui.features.addtransaction.TransactionViewModelFactory {
         val transactionRepo = provideTransactionRepository(context)
         val categoryRepo = provideCategoryRepository(context)
@@ -120,9 +126,11 @@ object Injection {
             getTransactionByIdUseCase = com.mobileprogramming.finsheet.domain.usecase.GetTransactionByIdUseCase(transactionRepo),
             getCategoriesByTypeUseCase = com.mobileprogramming.finsheet.domain.usecase.GetCategoriesByTypeUseCase(categoryRepo),
             addCategoryUseCase = com.mobileprogramming.finsheet.domain.usecase.AddCategoryUseCase(categoryRepo),
+            deleteCategoryUseCase = provideDeleteCategoryUseCase(context),
             checkTransactionBudgetLimitUseCase = provideCheckTransactionBudgetLimitUseCase(context),
             sharedPreferences = provideSharedPreferences(context),
-            context = context.applicationContext
+            context = context.applicationContext,
+            categoryRepository = categoryRepo
         )
     }
 }

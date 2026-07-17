@@ -12,15 +12,20 @@ import android.content.Context
 import android.content.SharedPreferences
 import com.mobileprogramming.finsheet.domain.usecase.budget.CheckTransactionBudgetLimitUseCase
 
+import com.mobileprogramming.finsheet.domain.repository.CategoryRepository
+import com.mobileprogramming.finsheet.domain.usecase.DeleteCategoryUseCase
+
 class TransactionViewModelFactory(
     private val addTransactionUseCase: AddTransactionUseCase,
     private val updateTransactionUseCase: UpdateTransactionUseCase,
     private val getTransactionByIdUseCase: GetTransactionByIdUseCase,
     private val getCategoriesByTypeUseCase: GetCategoriesByTypeUseCase,
     private val addCategoryUseCase: AddCategoryUseCase,
+    private val deleteCategoryUseCase: DeleteCategoryUseCase,
     private val checkTransactionBudgetLimitUseCase: CheckTransactionBudgetLimitUseCase,
     private val sharedPreferences: SharedPreferences,
-    private val context: Context
+    private val context: Context,
+    private val categoryRepository: CategoryRepository
 ) : ViewModelProvider.Factory {
 
     @Suppress("UNCHECKED_CAST")
@@ -32,13 +37,14 @@ class TransactionViewModelFactory(
                     updateTransactionUseCase,
                     getTransactionByIdUseCase,
                     getCategoriesByTypeUseCase,
+                    deleteCategoryUseCase,
                     checkTransactionBudgetLimitUseCase,
                     sharedPreferences,
                     context
                 ) as T
             }
             modelClass.isAssignableFrom(AddCategoryViewModel::class.java) -> {
-                AddCategoryViewModel(addCategoryUseCase) as T
+                AddCategoryViewModel(addCategoryUseCase, categoryRepository) as T
             }
             else -> throw IllegalArgumentException("Unknown ViewModel class")
         }

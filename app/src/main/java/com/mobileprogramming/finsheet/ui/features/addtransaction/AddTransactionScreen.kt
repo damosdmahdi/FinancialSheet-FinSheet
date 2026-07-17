@@ -138,8 +138,13 @@ fun AddTransactionScreen(
 ) {
     val state by viewModel.state.collectAsState()
     
-    /* ---- Local UI state ---- */
-    var selectedCurrency by remember { mutableStateOf("IDR") }
+    val context = LocalContext.current
+    val sharedPreferences = remember {
+        context.getSharedPreferences("finsheet_prefs", android.content.Context.MODE_PRIVATE)
+    }
+    var selectedCurrency by remember {
+        mutableStateOf(sharedPreferences.getString("main_currency", "IDR") ?: "IDR")
+    }
     var currencyDropdownExpanded by remember { mutableStateOf(false) }
 
     // DatePicker state
@@ -166,7 +171,6 @@ fun AddTransactionScreen(
     val primaryBlue = Color(0xFF1A5BEB)
 
     // Image state
-    val context = LocalContext.current
     var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
     var showImageSourceDialog by remember { mutableStateOf(false) }
 
@@ -712,11 +716,42 @@ private fun AmountInputCard(
             }
 
             Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "≈ Rp241.800",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            val eqText = remember(amountText, currency) {
+                val amount = amountText.toDoubleOrNull() ?: 0.0
+                if (amount <= 0.0) "" else {
+                    when (currency) {
+                        "IDR" -> {
+                            val usd = amount / 15000.0
+                            val formatted = String.format(java.util.Locale.US, "%,.2f", usd)
+                            "≈ $formatted"
+                        }
+                        "USD" -> {
+                            val idr = amount * 15000.0
+                            "≈ Rp " + java.text.DecimalFormat("#,###").format(idr).replace(',', '.')
+                        }
+                        "EUR" -> {
+                            val idr = amount * 16000.0
+                            "≈ Rp " + java.text.DecimalFormat("#,###").format(idr).replace(',', '.')
+                        }
+                        "JPY" -> {
+                            val idr = amount * 100.0
+                            "≈ Rp " + java.text.DecimalFormat("#,###").format(idr).replace(',', '.')
+                        }
+                        "SGD" -> {
+                            val idr = amount * 11000.0
+                            "≈ Rp " + java.text.DecimalFormat("#,###").format(idr).replace(',', '.')
+                        }
+                        else -> ""
+                    }
+                }
+            }
+            if (eqText.isNotEmpty()) {
+                Text(
+                    text = eqText,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }

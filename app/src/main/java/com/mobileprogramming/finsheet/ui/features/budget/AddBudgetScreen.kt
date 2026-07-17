@@ -103,12 +103,29 @@ fun AddBudgetScreen(
         )
     ),
     onNavigateBack: () -> Unit,
-    onNavigateToAddCategory: () -> Unit
+    onNavigateToAddCategory: () -> Unit,
+    onNavigateToEditCategory: (String) -> Unit,
+    savedStateHandle: androidx.lifecycle.SavedStateHandle? = null
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var selectedCategory by remember { mutableStateOf<CategoryItem?>(null) }
     var amountState by remember { mutableStateOf(TextFieldValue("")) }
     var showAllCategories by remember { mutableStateOf(false) }
+    var categoryToDelete by remember { mutableStateOf<CategoryItem?>(null) }
+
+    val context = LocalContext.current
+    val sharedPreferences = remember {
+        context.getSharedPreferences("finsheet_prefs", android.content.Context.MODE_PRIVATE)
+    }
+    val selectedCurrency = remember {
+        sharedPreferences.getString("main_currency", "IDR") ?: "IDR"
+    }
+
+    val newCategoryIdState by if (savedStateHandle != null) {
+        savedStateHandle.getStateFlow<String?>("new_category_id", null).collectAsStateWithLifecycle()
+    } else {
+        remember { mutableStateOf<String?>(null) }
+    }
 
     val dbCategories = remember(uiState.categories) {
         uiState.categories
@@ -127,6 +144,40 @@ fun AddBudgetScreen(
                     bgColorDark = bgColor
                 )
             }
+    }
+
+    LaunchedEffect(newCategoryIdState, dbCategories) {
+        val newId = newCategoryIdState
+        if (newId != null && dbCategories.isNotEmpty()) {
+            val matchingCategory = dbCategories.find { it.id == newId }
+            if (matchingCategory != null) {
+                selectedCategory = matchingCategory
+                savedStateHandle?.set("new_category_id", null)
+            }
+        }
+    }
+
+    if (categoryToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { categoryToDelete = null },
+            title = { Text("Hapus Kategori") },
+            text = { Text("Apakah Anda yakin ingin menghapus kategori \"${categoryToDelete?.name}\"? Semua alokasi anggaran dan riwayat transaksi untuk kategori ini akan terpengaruh.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        categoryToDelete?.let { viewModel.deleteCategory(it.id) }
+                        categoryToDelete = null
+                    }
+                ) {
+                    Text("Hapus", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { categoryToDelete = null }) {
+                    Text("Batal")
+                }
+            }
+        )
     }
 
     val budgetGridCategories = remember(dbCategories) {
@@ -150,6 +201,8 @@ fun AddBudgetScreen(
             categories = dbCategories,
             selectedCategory = selectedCategory,
             onCategorySelected = { selectedCategory = it },
+            onDeleteCategory = { categoryToDelete = it },
+            onEditCategory = { category -> onNavigateToEditCategory(category.id) },
             onConfirm = { showAllCategories = false },
             onBack = { showAllCategories = false }
         )
@@ -334,7 +387,7 @@ fun AddBudgetScreen(
                         ),
                         leadingIcon = {
                             Text(
-                                text = "Rp",
+                                text = com.mobileprogramming.finsheet.core.utils.CurrencyFormatter.getSymbol(selectedCurrency),
                                 style = MaterialTheme.typography.titleLarge.copy(
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -382,53 +435,93 @@ fun CategoryCard(
     category: CategoryItem,
     isSelected: Boolean,
     onClick: () -> Unit,
+    onEdit: (() -> Unit)? = null,
+    onDelete: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val isDark = isSystemInDarkTheme()
     val iconColor = if (isDark) category.iconColorDark else category.iconColorLight
     val bgColor = if (isDark) category.bgColorDark else category.bgColorLight
 
-    OutlinedCard(
-        onClick = onClick,
-        border = BorderStroke(
-            width = if (isSelected) 2.dp else 1.dp,
-            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-        ),
-        colors = CardDefaults.outlinedCardColors(
-            containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surface
-        ),
-        shape = RoundedCornerShape(12.dp),
-        modifier = modifier.aspectRatio(0.85f)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 4.dp, vertical = 8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+    Box(modifier = modifier.aspectRatio(0.85f)) {
+        OutlinedCard(
+            onClick = onClick,
+            border = BorderStroke(
+                width = if (isSelected) 2.dp else 1.dp,
+                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+            ),
+            colors = CardDefaults.outlinedCardColors(
+                containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surface
+            ),
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier.fillMaxSize()
         ) {
-            Box(
+            Column(
                 modifier = Modifier
-                    .size(44.dp)
-                    .clip(CircleShape)
-                    .background(bgColor),
-                contentAlignment = Alignment.Center
+                    .fillMaxSize()
+                    .padding(horizontal = 4.dp, vertical = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
             ) {
-                Icon(
-                    imageVector = category.icon,
-                    contentDescription = category.name,
-                    tint = iconColor,
-                    modifier = Modifier.size(24.dp)
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(bgColor),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = category.icon,
+                        contentDescription = category.name,
+                        tint = iconColor,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = category.name,
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
                 )
             }
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = category.name,
-                style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
-            )
+        }
+
+        if (category.id != "virtual-add-category" && category.name != "Lainnya") {
+            if (onEdit != null) {
+                IconButton(
+                    onClick = onEdit,
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .size(28.dp)
+                        .padding(4.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Edit,
+                        contentDescription = "Edit Kategori",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(14.dp)
+                    )
+                }
+            }
+
+            if (onDelete != null) {
+                IconButton(
+                    onClick = onDelete,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .size(28.dp)
+                        .padding(4.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Delete,
+                        contentDescription = "Hapus Kategori",
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(14.dp)
+                    )
+                }
+            }
         }
     }
 }
@@ -439,6 +532,8 @@ fun CategorySelectionScreen(
     categories: List<CategoryItem>,
     selectedCategory: CategoryItem?,
     onCategorySelected: (CategoryItem) -> Unit,
+    onDeleteCategory: (CategoryItem) -> Unit,
+    onEditCategory: (CategoryItem) -> Unit,
     onConfirm: () -> Unit,
     onBack: () -> Unit
 ) {
@@ -564,6 +659,8 @@ fun CategorySelectionScreen(
                                 category = category,
                                 isSelected = selectedCategory?.id == category.id,
                                 onClick = { onCategorySelected(category) },
+                                onEdit = { onEditCategory(category) },
+                                onDelete = { onDeleteCategory(category) },
                                 modifier = Modifier.weight(1f)
                             )
                         }

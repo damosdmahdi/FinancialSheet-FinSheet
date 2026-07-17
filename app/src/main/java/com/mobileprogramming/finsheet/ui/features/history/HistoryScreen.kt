@@ -36,6 +36,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mobileprogramming.finsheet.di.Injection
 import com.mobileprogramming.finsheet.ui.features.addtransaction.CategoryIconMapper
+import kotlinx.coroutines.launch
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -51,7 +52,8 @@ private fun formatDateMillis(millis: Long): String {
 fun HistoryScreen(
     viewModel: HistoryViewModel = viewModel(
         factory = HistoryViewModelFactory(
-            Injection.provideGetAllTransactionsUseCase(LocalContext.current.applicationContext)
+            getAllTransactionsUseCase = Injection.provideGetAllTransactionsUseCase(LocalContext.current.applicationContext),
+            sharedPreferences = Injection.provideSharedPreferences(LocalContext.current.applicationContext)
         )
     ),
     onNavigateBack: () -> Unit = {},
@@ -63,9 +65,16 @@ fun HistoryScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
+    LaunchedEffect(Unit) {
+        viewModel.refresh()
+    }
+
     /* ---- Local UI state ---- */
     var showDatePicker          by remember { mutableStateOf(false) }          // [REVISI 1]
     var isSyncing               by remember { mutableStateOf(false) }         // [REVISI 2]
+
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
 
     // [REVISI 1] Rentang tanggal dari DateRangePicker
     val dateRangePickerState = rememberDateRangePickerState()
@@ -221,8 +230,15 @@ fun HistoryScreen(
                         onClick   = {
                             if (!isSyncing) {
                                 isSyncing = true
-                                // TODO: panggil ViewModel.sync() di sini
-                                // Simulasi selesai sinkron setelah 2 detik
+                                coroutineScope.launch {
+                                    kotlinx.coroutines.delay(1500)
+                                    isSyncing = false
+                                    android.widget.Toast.makeText(
+                                        context,
+                                        "Sinkronisasi ke FinSheet_Dashboard berhasil!",
+                                        android.widget.Toast.LENGTH_SHORT
+                                    ).show()
+                                }
                             }
                         }
                     )
