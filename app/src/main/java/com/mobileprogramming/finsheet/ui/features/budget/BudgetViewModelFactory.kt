@@ -7,11 +7,14 @@ import com.mobileprogramming.finsheet.domain.usecase.budget.GetBudgetScreenDataU
 import com.mobileprogramming.finsheet.domain.usecase.budget.SaveCategoryBudgetsUseCase
 import android.content.SharedPreferences
 
+import com.mobileprogramming.finsheet.domain.usecase.currency.GetActiveCurrencyFlowUseCase
+
 class BudgetViewModelFactory(
     private val getBudgetScreenDataUseCase: GetBudgetScreenDataUseCase,
     private val saveCategoryBudgetsUseCase: SaveCategoryBudgetsUseCase,
     private val deleteBudgetUseCase: DeleteBudgetUseCase,
-    private val sharedPreferences: SharedPreferences
+    private val sharedPreferences: SharedPreferences,
+    private val getActiveCurrencyFlowUseCase: GetActiveCurrencyFlowUseCase
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -20,7 +23,8 @@ class BudgetViewModelFactory(
                 getBudgetScreenDataUseCase,
                 saveCategoryBudgetsUseCase,
                 deleteBudgetUseCase,
-                sharedPreferences
+                sharedPreferences,
+                getActiveCurrencyFlowUseCase
             ) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")

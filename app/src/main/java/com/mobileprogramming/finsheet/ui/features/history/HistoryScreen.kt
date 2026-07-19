@@ -23,24 +23,21 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import coil.compose.AsyncImage
+import java.io.File
+import com.mobileprogramming.finsheet.domain.usecase.transaction.SyncResult
 import com.mobileprogramming.finsheet.ui.components.BottomNavigationBar
 import java.text.SimpleDateFormat
 import java.util.*
-
-// ---------------------------------------------------------------------------
-// Screen
-// ---------------------------------------------------------------------------
 
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mobileprogramming.finsheet.di.Injection
 import com.mobileprogramming.finsheet.ui.features.addtransaction.CategoryIconMapper
-import kotlinx.coroutines.launch
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 
 private fun formatDateMillis(millis: Long): String {
     val sdf = SimpleDateFormat("d MMM yyyy", Locale.forLanguageTag("id-ID"))
@@ -51,33 +48,25 @@ private fun formatDateMillis(millis: Long): String {
 @Composable
 fun HistoryScreen(
     viewModel: HistoryViewModel = viewModel(
-        factory = HistoryViewModelFactory(
-            getAllTransactionsUseCase = Injection.provideGetAllTransactionsUseCase(LocalContext.current.applicationContext),
-            sharedPreferences = Injection.provideSharedPreferences(LocalContext.current.applicationContext)
-        )
+        factory = Injection.provideHistoryViewModelFactory(LocalContext.current.applicationContext)
     ),
     onNavigateBack: () -> Unit = {},
     onNavigateToAddTransaction: () -> Unit = {},
     onNavigateToDashboard: () -> Unit = {},
-    onNavigateToTransaction: (String) -> Unit = {},   // [REVISI 3] navigasi ke halaman transaksi
+    onNavigateToTransaction: (String) -> Unit = {},
     onNavigateToAnggaran: () -> Unit = {},
     onNavigateToSettings: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    LaunchedEffect(Unit) {
-        viewModel.refresh()
-    }
-
     /* ---- Local UI state ---- */
-    var showDatePicker          by remember { mutableStateOf(false) }          // [REVISI 1]
-    var isSyncing               by remember { mutableStateOf(false) }         // [REVISI 2]
+    var showDatePicker          by remember { mutableStateOf(false) }
+    var isSyncing               by remember { mutableStateOf(false) }
+    // Key diincrement saat Reset agar DateRangePickerState recreate (seleksi hilang)
+    var datePickerKey           by remember { mutableIntStateOf(0) }
 
-    val context = LocalContext.current
-    val coroutineScope = rememberCoroutineScope()
-
-    // [REVISI 1] Rentang tanggal dari DateRangePicker
-    val dateRangePickerState = rememberDateRangePickerState()
+    // Rentang tanggal dari DateRangePicker
+    val dateRangePickerState = key(datePickerKey) { rememberDateRangePickerState() }
     val dateRangeText = remember(
         dateRangePickerState.selectedStartDateMillis,
         dateRangePickerState.selectedEndDateMillis
@@ -85,34 +74,50 @@ fun HistoryScreen(
         val start = dateRangePickerState.selectedStartDateMillis
         val end   = dateRangePickerState.selectedEndDateMillis
         when {
-            start != null && end != null ->
+            start != null && end != null && start != end ->
                 "${formatDateMillis(start)} - ${formatDateMillis(end)}"
             start != null ->
-                "${formatDateMillis(start)} - ..."
+                formatDateMillis(start)
             else ->
-                "1 Okt - 10 Okt 2023"
+                "Pilih Rentang Waktu"
         }
     }
 
-    val primaryBlue   = Color(0xFF1A5BEB)
-    val incomeGreen   = Color(0xFF2DC653)
-    val expenseRed    = Color(0xFFE53935)
+    val primaryBlue   = MaterialTheme.colorScheme.primary
+    val incomeGreen   = Color(0xFF4CAF50)
+    val expenseRed    = Color(0xFFF44336)
     val segmentedBg   = MaterialTheme.colorScheme.surfaceContainerHigh
+    
+    var selectedImagePath by remember { mutableStateOf<String?>(null) }
+    var showFullImageDialog by remember { mutableStateOf(false) }
 
-    // Filter the groups based on selected tab is now handled in ViewModel
-
-    // [REVISI 1] Modal DateRangePicker
     if (showDatePicker) {
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
             confirmButton = {
-                TextButton(onClick = { showDatePicker = false }) {
+                TextButton(onClick = { 
+                    showDatePicker = false 
+                    viewModel.setDateRange(
+                        dateRangePickerState.selectedStartDateMillis,
+                        dateRangePickerState.selectedEndDateMillis
+                    )
+                }) {
                     Text("Pilih")
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) {
-                    Text("Batal")
+                Row {
+                    TextButton(onClick = {
+                        showDatePicker = false
+                        datePickerKey++                               // reset local picker state
+                        viewModel.setDateRange(null, null)            // hapus filter tanggal
+                        viewModel.setFilter(TransactionFilter.SEMUA)  // kembalikan ke "Semua"
+                    }) {
+                        Text("Reset")
+                    }
+                    TextButton(onClick = { showDatePicker = false }) {
+                        Text("Batal")
+                    }
                 }
             }
         ) {
@@ -205,10 +210,7 @@ fun HistoryScreen(
                 .padding(paddingValues),
             contentPadding = PaddingValues(bottom = 8.dp)
         ) {
-            // ----------------------------------------------------------------
-            // Header row: "Riwayat" title + Sync chip
-            // ----------------------------------------------------------------
-            item {
+            item(key = "header_title") {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -223,21 +225,40 @@ fun HistoryScreen(
                         ),
                         color = MaterialTheme.colorScheme.onSurface
                     )
-                    // [REVISI 2] Chip yang bisa diklik untuk sinkron manual
+                    val context = LocalContext.current
+                    val isUserLoggedIn = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser != null
                     SyncStatusChip(
                         isSyncing = isSyncing,
+                        isUserLoggedIn = isUserLoggedIn,
                         primaryBlue = primaryBlue,
                         onClick   = {
                             if (!isSyncing) {
                                 isSyncing = true
-                                coroutineScope.launch {
-                                    kotlinx.coroutines.delay(1500)
+                                val email = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.email
+                                if (email != null) {
+                                    viewModel.syncToGoogleSheets(email) { result ->
+                                        isSyncing = false
+                                        when (result) {
+                                            is SyncResult.Success -> {
+                                                android.widget.Toast.makeText(context, "Berhasil Sinkron!", android.widget.Toast.LENGTH_SHORT).show()
+                                            }
+                                            is SyncResult.NoNewData -> {
+                                                android.widget.Toast.makeText(context, "Sudah tersinkronisasi, tidak ada data baru.", android.widget.Toast.LENGTH_SHORT).show()
+                                            }
+                                            is SyncResult.TokenError -> {
+                                                android.widget.Toast.makeText(context, "Izin belum diberikan, harap login ulang atau izinkan akses Drive.", android.widget.Toast.LENGTH_LONG).show()
+                                            }
+                                            is SyncResult.SheetError -> {
+                                                android.widget.Toast.makeText(context, "Gagal membuat/menemukan spreadsheet.", android.widget.Toast.LENGTH_LONG).show()
+                                            }
+                                            is SyncResult.Error -> {
+                                                android.widget.Toast.makeText(context, result.message ?: "Gagal Sinkron", android.widget.Toast.LENGTH_SHORT).show()
+                                            }
+                                        }
+                                    }
+                                } else {
                                     isSyncing = false
-                                    android.widget.Toast.makeText(
-                                        context,
-                                        "Sinkronisasi ke FinSheet_Dashboard berhasil!",
-                                        android.widget.Toast.LENGTH_SHORT
-                                    ).show()
+                                    android.widget.Toast.makeText(context, "Harap login dengan Google", android.widget.Toast.LENGTH_SHORT).show()
                                 }
                             }
                         }
@@ -245,10 +266,7 @@ fun HistoryScreen(
                 }
             }
 
-            // ----------------------------------------------------------------
-            // [REVISI 1] Date range selector — membuka modal DateRangePicker
-            // ----------------------------------------------------------------
-            item {
+            item(key = "date_range_selector") {
                 DateRangeRow(
                     label       = dateRangeText,
                     onToggle    = { showDatePicker = true },
@@ -258,10 +276,7 @@ fun HistoryScreen(
                 Spacer(modifier = Modifier.height(12.dp))
             }
 
-            // ----------------------------------------------------------------
-            // [REVISI 4] Filter tabs: Semua / Pengeluaran / Pemasukan — ukuran sama
-            // ----------------------------------------------------------------
-            item {
+            item(key = "filter_tabs") {
                 FilterTabRow(
                     selected    = uiState.selectedFilter,
                     onSelect    = { viewModel.setFilter(it) },
@@ -272,25 +287,21 @@ fun HistoryScreen(
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
-            // ----------------------------------------------------------------
-            // Transaction groups
-            // ----------------------------------------------------------------
             if (uiState.isLoading) {
-                item {
+                item(key = "loading_indicator") {
                     Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator(color = primaryBlue)
                     }
                 }
             } else if (uiState.transactions.isEmpty()) {
-                item {
+                item(key = "empty_state") {
                     Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
                         Text("Belum ada transaksi.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             } else {
-                uiState.transactions.forEach { group ->
-                    // Date section header
-                    item(key = "header_${group.dateLabel}") {
+                uiState.transactions.forEachIndexed { index, group ->
+                    item(key = "header_${group.dateLabel}_$index") {
                         Text(
                             text     = group.dateLabel,
                             style    = MaterialTheme.typography.labelMedium.copy(
@@ -304,24 +315,65 @@ fun HistoryScreen(
                         )
                     }
 
-                    // Transaction items in the group
                     items(
                         items = group.items,
-                        key   = { it.id } // Fixed: Use unique transaction ID as key
+                        key   = { it.id } 
                     ) { tx ->
-                        // [REVISI 3] Klik item → navigasi ke halaman transaksi
                         TransactionRow(
                             item        = tx,
                             incomeGreen = incomeGreen,
                             expenseRed  = expenseRed,
                             onClick     = { onNavigateToTransaction(tx.id) },
+                            // onImageClick = { path ->
+                            //     selectedImagePath = path
+                            //     showFullImageDialog = true
+                            // },
                             modifier    = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
                         )
                     }
 
-                    // Spacing after each group
-                    item(key = "spacer_${group.dateLabel}") {
+                    item(key = "spacer_${group.dateLabel}_$index") {
                         Spacer(modifier = Modifier.height(8.dp))
+                    }
+                }
+            }
+        }
+        
+        if (showFullImageDialog && selectedImagePath != null) {
+            Dialog(
+                onDismissRequest = { showFullImageDialog = false },
+                properties = DialogProperties(
+                    usePlatformDefaultWidth = false
+                )
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black)
+                        .clickable { showFullImageDialog = false },
+                    contentAlignment = Alignment.Center
+                ) {
+                    AsyncImage(
+                        model = File(selectedImagePath!!),
+                        contentDescription = "Foto Transaksi Fullscreen",
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                    IconButton(
+                        onClick = { showFullImageDialog = false },
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(16.dp)
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(Color.Black.copy(alpha = 0.6f))
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Close,
+                            contentDescription = "Tutup",
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp)
+                        )
                     }
                 }
             }
@@ -329,25 +381,23 @@ fun HistoryScreen(
     }
 }
 
-// ---------------------------------------------------------------------------
-// Sub-composables
-// ---------------------------------------------------------------------------
-
-/**
- * [REVISI 2] Chip "Sudah Sinkron" / "Sinkronkan" yang bisa diklik untuk sinkron manual.
- */
 @Composable
 private fun SyncStatusChip(
     isSyncing: Boolean,
+    isUserLoggedIn: Boolean,
     primaryBlue: Color,
     onClick: () -> Unit
 ) {
     val bgColor   = if (isSyncing)
         MaterialTheme.colorScheme.primaryContainer
+    else if (!isUserLoggedIn)
+        MaterialTheme.colorScheme.errorContainer
     else
         MaterialTheme.colorScheme.secondaryContainer
     val textColor = if (isSyncing)
         MaterialTheme.colorScheme.onPrimaryContainer
+    else if (!isUserLoggedIn)
+        MaterialTheme.colorScheme.onErrorContainer
     else
         MaterialTheme.colorScheme.onSecondaryContainer
     Row(
@@ -365,16 +415,23 @@ private fun SyncStatusChip(
                 color     = textColor,
                 strokeWidth = 1.5.dp
             )
+        } else if (!isUserLoggedIn) {
+            Icon(
+                imageVector        = Icons.Outlined.ErrorOutline,
+                contentDescription = "Belum Login",
+                tint               = textColor,
+                modifier           = Modifier.size(14.dp)
+            )
         } else {
             Icon(
-                imageVector        = Icons.Outlined.CheckCircle,
+                imageVector        = Icons.Outlined.Sync,
                 contentDescription = "Sinkron",
                 tint               = textColor,
                 modifier           = Modifier.size(14.dp)
             )
         }
         Text(
-            text  = if (isSyncing) "Sinkronisasi..." else "Sudah Sinkron",
+            text  = if (isSyncing) "Sinkronisasi..." else if (!isUserLoggedIn) "Belum Login" else "Sudah Sinkron",
             style = MaterialTheme.typography.labelSmall.copy(
                 fontWeight = FontWeight.SemiBold,
                 color      = textColor,
@@ -384,9 +441,6 @@ private fun SyncStatusChip(
     }
 }
 
-/**
- * [REVISI 1] Baris pemilih rentang tanggal — onToggle membuka DateRangePicker modal.
- */
 @Composable
 private fun DateRangeRow(
     label: String,
@@ -438,9 +492,6 @@ private fun DateRangeRow(
     }
 }
 
-/**
- * [REVISI 4] Tab filter Semua / Pengeluaran / Pemasukan dengan ukuran yang sama rata.
- */
 @Composable
 private fun FilterTabRow(
     selected: TransactionFilter,
@@ -457,7 +508,6 @@ private fun FilterTabRow(
             .padding(4.dp)
     ) {
         Row(modifier = Modifier.fillMaxWidth()) {
-            // weight(1f) yang sama untuk ketiga tombol
             FilterTab(
                 label       = "Semua",
                 isSelected  = selected == TransactionFilter.SEMUA,
@@ -510,15 +560,13 @@ private fun FilterTab(
     }
 }
 
-/**
- * [REVISI 3] Baris satu transaksi — klik membuka halaman edit transaksi.
- */
 @Composable
 private fun TransactionRow(
     item: TransactionItemUI,
     incomeGreen: Color,
     expenseRed: Color,
     onClick: () -> Unit,
+    // onImageClick: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val amountColor = if (item.isExpense) expenseRed else incomeGreen
@@ -529,12 +577,11 @@ private fun TransactionRow(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(10.dp))
-            .clickable(onClick = onClick)         // [REVISI 3] navigasi ke transaksi
+            .clickable(onClick = onClick)
             .padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // Circular icon
         Box(
             modifier = Modifier
                 .size(44.dp)
@@ -550,7 +597,6 @@ private fun TransactionRow(
             )
         }
 
-        // Title + time • category
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text     = item.title,
@@ -569,7 +615,25 @@ private fun TransactionRow(
             )
         }
 
-        // Amount
+        // if (item.receiptLocalPath != null) {
+        //     Box(
+        //         modifier = Modifier
+        //             .padding(end = 8.dp)
+        //             .size(36.dp)
+        //             .clip(RoundedCornerShape(8.dp))
+        //             .background(MaterialTheme.colorScheme.surfaceVariant)
+        //             .clickable { onImageClick(item.receiptLocalPath) },
+        //         contentAlignment = Alignment.Center
+        //     ) {
+        //         AsyncImage(
+        //             model = File(item.receiptLocalPath),
+        //             contentDescription = "Bukti Transaksi",
+        //             contentScale = ContentScale.Crop,
+        //             modifier = Modifier.fillMaxSize()
+        //         )
+        //     }
+        // }
+
         Text(
             text  = item.amount,
             style = MaterialTheme.typography.bodyMedium.copy(

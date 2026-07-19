@@ -13,7 +13,7 @@ data class BudgetCategoryItemModel(
     val iconName: String?,
     val colorHex: String?,
     val budgetId: String?,
-    val allocatedAmount: Long
+    val allocatedAmount: Double
 )
 
 data class BudgetScreenData(

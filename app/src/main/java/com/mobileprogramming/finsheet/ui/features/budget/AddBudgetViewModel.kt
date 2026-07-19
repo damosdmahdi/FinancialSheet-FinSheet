@@ -4,8 +4,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.mobileprogramming.finsheet.data.local.entity.CategoryEntity
+import com.mobileprogramming.finsheet.data.local.entity.CurrencyEntity
 import com.mobileprogramming.finsheet.domain.repository.CategoryRepository
 import com.mobileprogramming.finsheet.domain.usecase.budget.SaveCategoryBudgetsUseCase
+import com.mobileprogramming.finsheet.domain.usecase.currency.GetActiveCurrencyFlowUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -14,12 +16,14 @@ import kotlinx.coroutines.launch
 
 data class AddBudgetUiState(
     val categories: List<CategoryEntity> = emptyList(),
-    val isLoading: Boolean = false
+    val isLoading: Boolean = false,
+    val activeCurrency: CurrencyEntity? = null
 )
 
 class AddBudgetViewModel(
     private val categoryRepository: CategoryRepository,
-    private val saveCategoryBudgetsUseCase: SaveCategoryBudgetsUseCase
+    private val saveCategoryBudgetsUseCase: SaveCategoryBudgetsUseCase,
+    private val getActiveCurrencyFlowUseCase: GetActiveCurrencyFlowUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AddBudgetUiState())
@@ -27,6 +31,15 @@ class AddBudgetViewModel(
 
     init {
         loadExpenseCategories()
+        loadActiveCurrency()
+    }
+
+    private fun loadActiveCurrency() {
+        viewModelScope.launch {
+            getActiveCurrencyFlowUseCase().collect { currency ->
+                _uiState.update { it.copy(activeCurrency = currency) }
+            }
+        }
     }
 
     private fun loadExpenseCategories() {
@@ -38,28 +51,23 @@ class AddBudgetViewModel(
         }
     }
 
-    fun saveBudget(categoryId: String, budgetName: String, amountLimit: Long, onComplete: () -> Unit) {
+    fun saveBudget(categoryId: String, budgetName: String, amountLimit: Double, onComplete: () -> Unit) {
         viewModelScope.launch {
             saveCategoryBudgetsUseCase(categoryId, budgetName, amountLimit)
             onComplete()
-        }
-    }
-
-    fun deleteCategory(categoryId: String) {
-        viewModelScope.launch {
-            categoryRepository.deleteCategory(categoryId)
         }
     }
 }
 
 class AddBudgetViewModelFactory(
     private val categoryRepository: CategoryRepository,
-    private val saveCategoryBudgetsUseCase: SaveCategoryBudgetsUseCase
+    private val saveCategoryBudgetsUseCase: SaveCategoryBudgetsUseCase,
+    private val getActiveCurrencyFlowUseCase: GetActiveCurrencyFlowUseCase
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(AddBudgetViewModel::class.java)) {
-            return AddBudgetViewModel(categoryRepository, saveCategoryBudgetsUseCase) as T
+            return AddBudgetViewModel(categoryRepository, saveCategoryBudgetsUseCase, getActiveCurrencyFlowUseCase) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

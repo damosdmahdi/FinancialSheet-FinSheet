@@ -12,7 +12,7 @@ data class TransactionEntity(
     @ColumnInfo(name = "category_id")
     val categoryId: String? = null,
     
-    val amount: Int,
+    val amount: Double,
     
     @ColumnInfo(name = "transaction_type")
     val transactionType: String,

@@ -1,18 +1,18 @@
 package com.mobileprogramming.finsheet.ui.features.dashboard
 
-import android.content.SharedPreferences
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.mobileprogramming.finsheet.domain.usecase.GetDashboardDataUseCase
+import com.mobileprogramming.finsheet.domain.usecase.currency.GetActiveCurrencyFlowUseCase
 
 class DashboardViewModelFactory(
-    private val useCase: GetDashboardDataUseCase,
-    private val sharedPreferences: SharedPreferences
+    private val getDashboardDataUseCase: GetDashboardDataUseCase,
+    private val getActiveCurrencyFlowUseCase: GetActiveCurrencyFlowUseCase
 ) : ViewModelProvider.Factory {
-    @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(DashboardViewModel::class.java)) {
-            return DashboardViewModel(useCase, sharedPreferences) as T
+            @Suppress("UNCHECKED_CAST")
+            return DashboardViewModel(getDashboardDataUseCase, getActiveCurrencyFlowUseCase) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

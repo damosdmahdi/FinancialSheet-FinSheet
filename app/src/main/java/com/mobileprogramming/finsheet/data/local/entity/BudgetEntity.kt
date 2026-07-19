@@ -16,7 +16,7 @@ data class BudgetEntity(
     val budgetName: String,
 
     @ColumnInfo(name = "amount_limit")
-    val amountLimit: Long, // Pakai Long untuk angka besar (BigInt)
+    val amountLimit: Double,
 
     @ColumnInfo(name = "start_date")
     val startDate: Long,

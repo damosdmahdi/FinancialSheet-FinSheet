@@ -26,14 +26,6 @@ object CategoryIconMapper {
             "CardGiftcard" -> Icons.Outlined.CardGiftcard
             "Storefront" -> Icons.Outlined.Storefront
             "Add" -> Icons.Filled.Add
-            "WaterDrop" -> Icons.Outlined.WaterDrop
-            "Bolt" -> Icons.Outlined.Bolt
-            "Build" -> Icons.Outlined.Build
-            "LocalGasStation" -> Icons.Outlined.LocalGasStation
-            "Shield" -> Icons.Outlined.Shield
-            "Bed" -> Icons.Outlined.Bed
-            "Wifi" -> Icons.Outlined.Wifi
-            "DirectionsBus" -> Icons.Outlined.DirectionsBus
             else -> Icons.Outlined.MoreHoriz
         }
     }

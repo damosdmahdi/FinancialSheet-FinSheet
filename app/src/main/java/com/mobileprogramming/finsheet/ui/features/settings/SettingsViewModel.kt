@@ -6,6 +6,11 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
+import com.mobileprogramming.finsheet.data.local.entity.CurrencyEntity
+import com.mobileprogramming.finsheet.domain.usecase.currency.GetActiveCurrencyUseCase
+import com.mobileprogramming.finsheet.domain.usecase.currency.GetAllCurrenciesUseCase
+import com.mobileprogramming.finsheet.domain.usecase.currency.SetPreferredCurrencyUseCase
+import com.mobileprogramming.finsheet.domain.usecase.currency.SyncCurrenciesUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -16,11 +21,8 @@ data class SettingsUiState(
     val anggaranHarian: Boolean = true,
     val anggaranMingguan: Boolean = true,
     val anggaranBulanan: Boolean = true,
-    val selectedGoogleSheet: String = "FinSheet_Dashboard",
-    val selectedCurrency: String = "IDR",
     val isUserLoggedIn: Boolean = false,
-    val isGuestMode: Boolean = false,
-    val hasSyncedSpreadsheet: Boolean = false,
+    val isGuest: Boolean = false,
     val userDisplayName: String? = null,
     val userEmail: String? = null,
     val userPhotoUrl: String? = null,
@@ -28,12 +30,26 @@ data class SettingsUiState(
 )
 
 class SettingsViewModel(
-    private val sharedPreferences: SharedPreferences
+    private val sharedPreferences: SharedPreferences,
+    private val getActiveCurrencyUseCase: GetActiveCurrencyUseCase,
+    private val getAllCurrenciesUseCase: GetAllCurrenciesUseCase,
+    private val setPreferredCurrencyUseCase: SetPreferredCurrencyUseCase,
+    private val syncCurrenciesUseCase: SyncCurrenciesUseCase
 ) : ViewModel() {
 
     private val auth = FirebaseAuth.getInstance()
+    
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
+
+    private val _activeCurrency = MutableStateFlow<CurrencyEntity?>(null)
+    val activeCurrency: StateFlow<CurrencyEntity?> = _activeCurrency.asStateFlow()
+
+    private val _currencies = MutableStateFlow<List<CurrencyEntity>>(emptyList())
+    val currencies: StateFlow<List<CurrencyEntity>> = _currencies.asStateFlow()
+    
+    private val _isSyncing = MutableStateFlow(false)
+    val isSyncing: StateFlow<Boolean> = _isSyncing.asStateFlow()
 
     private val authStateListener = FirebaseAuth.AuthStateListener { firebaseAuth ->
         val user = firebaseAuth.currentUser
@@ -43,58 +59,40 @@ class SettingsViewModel(
     init {
         auth.addAuthStateListener(authStateListener)
         loadPreferences()
+        fetchActiveCurrency()
+        observeCurrencies()
     }
 
     private fun loadPreferences() {
         val dailyBudget = sharedPreferences.getBoolean("anggaran_harian_terlewati", true)
         val weeklyBudget = sharedPreferences.getBoolean("anggaran_mingguan_terlewati", true)
         val monthlyBudget = sharedPreferences.getBoolean("anggaran_bulanan_terlewati", true)
-        val sheetName = sharedPreferences.getString("google_sheet_name", "FinSheet_Dashboard") ?: "FinSheet_Dashboard"
         val customPhoto = sharedPreferences.getString("custom_profile_photo", null)
-        val currency = sharedPreferences.getString("main_currency", "IDR") ?: "IDR"
-        val hasSynced = sharedPreferences.getBoolean("has_synced_spreadsheet", false)
         
         _uiState.update { currentState ->
             currentState.copy(
                 anggaranHarian = dailyBudget,
                 anggaranMingguan = weeklyBudget,
                 anggaranBulanan = monthlyBudget,
-                selectedGoogleSheet = sheetName,
-                customProfilePhotoPath = customPhoto,
-                selectedCurrency = currency,
-                hasSyncedSpreadsheet = hasSynced
+                customProfilePhotoPath = customPhoto
             )
         }
-    }
-
-    fun refreshSettings() {
-        loadPreferences()
     }
 
     private fun updateUserState(user: FirebaseUser?) {
         _uiState.update { currentState ->
             if (user != null) {
-                if (user.isAnonymous) {
-                    currentState.copy(
-                        isUserLoggedIn = false,
-                        isGuestMode = true,
-                        userDisplayName = "Tamu Finshett (Honoratus)",
-                        userEmail = "Mode Guest",
-                        userPhotoUrl = null
-                    )
-                } else {
-                    currentState.copy(
-                        isUserLoggedIn = true,
-                        isGuestMode = false,
-                        userDisplayName = user.displayName ?: user.email?.substringBefore("@"),
-                        userEmail = user.email,
-                        userPhotoUrl = user.photoUrl?.toString()
-                    )
-                }
+                currentState.copy(
+                    isUserLoggedIn = true,
+                    isGuest = user.isAnonymous,
+                    userDisplayName = user.displayName ?: user.email?.substringBefore("@"),
+                    userEmail = user.email,
+                    userPhotoUrl = user.photoUrl?.toString()
+                )
             } else {
                 currentState.copy(
                     isUserLoggedIn = false,
-                    isGuestMode = false,
+                    isGuest = false,
                     userDisplayName = null,
                     userEmail = null,
                     userPhotoUrl = null
@@ -118,14 +116,9 @@ class SettingsViewModel(
         _uiState.update { it.copy(anggaranMingguan = value) }
     }
 
-    fun setGoogleSheetName(value: String) {
-        sharedPreferences.edit().putString("google_sheet_name", value).apply()
-        _uiState.update { it.copy(selectedGoogleSheet = value) }
-    }
-
-    fun setCurrency(value: String) {
-        sharedPreferences.edit().putString("main_currency", value).apply()
-        _uiState.update { it.copy(selectedCurrency = value) }
+    fun getSpreadsheetUrl(): String? {
+        val sheetId = sharedPreferences.getString("spreadsheet_id", null)
+        return if (sheetId != null) "https://docs.google.com/spreadsheets/d/$sheetId/edit" else null
     }
 
     fun saveCustomProfilePhoto(context: android.content.Context, uri: android.net.Uri) {
@@ -147,6 +140,39 @@ class SettingsViewModel(
         }
     }
 
+    private fun fetchActiveCurrency() {
+        viewModelScope.launch {
+            _activeCurrency.value = getActiveCurrencyUseCase()
+        }
+    }
+
+    private fun observeCurrencies() {
+        viewModelScope.launch {
+            getAllCurrenciesUseCase().collect { list ->
+                _currencies.value = list
+                if (list.isEmpty() && !_isSyncing.value) {
+                    syncCurrencies()
+                }
+            }
+        }
+    }
+
+    fun syncCurrencies() {
+        viewModelScope.launch {
+            _isSyncing.value = true
+            syncCurrenciesUseCase()
+            fetchActiveCurrency()
+            _isSyncing.value = false
+        }
+    }
+
+    fun setPreferredCurrency(code: String) {
+        viewModelScope.launch {
+            setPreferredCurrencyUseCase(code)
+            fetchActiveCurrency()
+        }
+    }
+
     fun signOut() {
         auth.signOut()
     }
@@ -158,12 +184,23 @@ class SettingsViewModel(
 }
 
 class SettingsViewModelFactory(
-    private val sharedPreferences: SharedPreferences
+    private val sharedPreferences: SharedPreferences,
+    private val getActiveCurrencyUseCase: GetActiveCurrencyUseCase,
+    private val getAllCurrenciesUseCase: GetAllCurrenciesUseCase,
+    private val setPreferredCurrencyUseCase: SetPreferredCurrencyUseCase,
+    private val syncCurrenciesUseCase: SyncCurrenciesUseCase
 ) : ViewModelProvider.Factory {
+    
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(SettingsViewModel::class.java)) {
-            return SettingsViewModel(sharedPreferences) as T
+            return SettingsViewModel(
+                sharedPreferences,
+                getActiveCurrencyUseCase,
+                getAllCurrenciesUseCase,
+                setPreferredCurrencyUseCase,
+                syncCurrenciesUseCase
+            ) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

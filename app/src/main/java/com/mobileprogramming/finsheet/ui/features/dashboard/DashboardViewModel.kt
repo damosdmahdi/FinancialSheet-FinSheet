@@ -1,44 +1,50 @@
 package com.mobileprogramming.finsheet.ui.features.dashboard
 
-import android.content.SharedPreferences
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mobileprogramming.finsheet.domain.usecase.GetDashboardDataUseCase
+import com.mobileprogramming.finsheet.domain.usecase.currency.GetActiveCurrencyFlowUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.text.NumberFormat
+import java.util.Locale
 
 class DashboardViewModel(
     private val getDashboardDataUseCase: GetDashboardDataUseCase,
-    private val sharedPreferences: SharedPreferences
+    private val getActiveCurrencyFlowUseCase: GetActiveCurrencyFlowUseCase
 ) : ViewModel() {
 
     private val _filterIndex = MutableStateFlow(2) // Default: Bulan Ini
-    private val _currencyCode = MutableStateFlow("IDR")
 
     private val _uiState = MutableStateFlow(DashboardUiState())
     val uiState: StateFlow<DashboardUiState> = _uiState.asStateFlow()
 
     init {
-        refresh()
         loadDashboardData()
-    }
-
-    fun refresh() {
-        _currencyCode.value = sharedPreferences.getString("main_currency", "IDR") ?: "IDR"
     }
 
     private fun loadDashboardData() {
         viewModelScope.launch {
             combine(
-                getDashboardDataUseCase(),
+                getDashboardDataUseCase().catch { e -> e.printStackTrace() },
                 _filterIndex,
-                _currencyCode
-            ) { dashboardData, filterIndex, currencyCode ->
+                getActiveCurrencyFlowUseCase().catch { e -> e.printStackTrace() }
+            ) { dashboardData, filterIndex, activeCurrency ->
+                val rate = activeCurrency?.rateToIdr ?: 1.0
+                val symbol = activeCurrency?.symbol ?: "Rp"
+                
+                val format = NumberFormat.getCurrencyInstance(Locale("en", "US"))
+                format.maximumFractionDigits = 0
+                format.minimumFractionDigits = 0
+                val customFormat = { amount: Double ->
+                    format.format(amount).replace("$", "$symbol ")
+                }
+
+                // Dapatkan data pengeluaran berdasarkan filter yang dipilih
                 val (rawExpenses, totalExpenseVal) = when (filterIndex) {
                     0 -> Pair(dashboardData.categoryExpensesToday, dashboardData.totalExpenseToday)
                     1 -> Pair(dashboardData.categoryExpensesThisWeek, dashboardData.totalExpenseThisWeek)
@@ -61,47 +67,34 @@ class DashboardViewModel(
 
                 // Map Budget Progress
                 val budgets = dashboardData.monthlyBudgets.map { budget ->
-                    val progress = if (budget.limitAmount > 0) {
-                        budget.usedAmount.toFloat() / budget.limitAmount
+                    val progress = if (budget.limitAmount > 0.0) {
+                        (budget.usedAmount / budget.limitAmount).toFloat()
                     } else 0f
                     
                     val remaining = budget.limitAmount - budget.usedAmount
                     
-                    val usedStr = com.mobileprogramming.finsheet.core.utils.CurrencyFormatter.format(budget.usedAmount, currencyCode)
-                    val totalStr = com.mobileprogramming.finsheet.core.utils.CurrencyFormatter.format(budget.limitAmount, currencyCode)
-                    val remainingStr = com.mobileprogramming.finsheet.core.utils.CurrencyFormatter.format(remaining.coerceAtLeast(0), currencyCode)
-
                     BudgetProgressData(
                         iconName = budget.icon,
                         colorHex = budget.color,
                         budgetName = budget.budgetName,
                         percentage = "${(progress * 100).toInt()}%",
                         progress = progress.coerceAtMost(1f),
-                        usedAmountStr = usedStr,
-                        totalAmountStr = totalStr,
-                        remainingAmountStr = remainingStr
+                        usedAmountStr = customFormat(budget.usedAmount * rate),
+                        totalAmountStr = customFormat(budget.limitAmount * rate),
+                        remainingAmountStr = customFormat(remaining.coerceAtLeast(0.0) * rate)
                     )
                 }
 
-                val balanceStr = com.mobileprogramming.finsheet.core.utils.CurrencyFormatter.format(dashboardData.totalBalance, currencyCode)
-                val incomeStr = com.mobileprogramming.finsheet.core.utils.CurrencyFormatter.format(dashboardData.incomeThisMonth, currencyCode)
-                val expenseStr = com.mobileprogramming.finsheet.core.utils.CurrencyFormatter.format(dashboardData.expenseThisMonth, currencyCode)
-                val totalExpenseFilterStr = com.mobileprogramming.finsheet.core.utils.CurrencyFormatter.format(totalExpenseVal, currencyCode)
-
                 DashboardUiState(
-                    totalBalance = balanceStr,
-                    incomeThisMonth = incomeStr,
-                    expenseThisMonth = expenseStr,
+                    totalBalance = customFormat(dashboardData.totalBalance * rate),
+                    incomeThisMonth = customFormat(dashboardData.incomeThisMonth * rate),
+                    expenseThisMonth = customFormat(dashboardData.expenseThisMonth * rate),
                     selectedFilterIndex = filterIndex,
-                    totalExpenseForFilter = totalExpenseFilterStr,
+                    totalExpenseForFilter = customFormat(totalExpenseVal * rate),
                     categoryExpenses = catExpenses,
                     monthlyBudgets = budgets
                 )
-            }
-            .catch { e ->
-                // Handle error if needed
-            }
-            .collect { state ->
+            }.collect { state ->
                 _uiState.value = state
             }
         }

@@ -15,8 +15,8 @@ enum class BudgetExceedType {
 data class BudgetCheckResult(
     val type: BudgetExceedType,
     val categoryName: String?,
-    val budgetLimit: Long,
-    val spentAmount: Long
+    val budgetLimit: Double,
+    val spentAmount: Double
 )
 
 class CheckTransactionBudgetLimitUseCase(
@@ -25,9 +25,9 @@ class CheckTransactionBudgetLimitUseCase(
 ) {
     suspend operator fun invoke(
         categoryId: String?,
-        amount: Long,
+        amount: Double,
         date: Long,
-        globalMonthlyLimit: Long
+        globalMonthlyLimit: Double
     ): List<BudgetCheckResult> {
         val results = mutableListOf<BudgetCheckResult>()
         

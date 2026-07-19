@@ -1,24 +1,31 @@
 package com.mobileprogramming.finsheet.ui.features.history
 
-import android.content.SharedPreferences
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mobileprogramming.finsheet.domain.model.TransactionItemModel
 import com.mobileprogramming.finsheet.domain.usecase.transaction.GetAllTransactionsUseCase
+import com.mobileprogramming.finsheet.domain.usecase.currency.GetActiveCurrencyFlowUseCase
+import com.mobileprogramming.finsheet.data.local.entity.CurrencyEntity
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
+import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import com.mobileprogramming.finsheet.domain.usecase.transaction.SyncTransactionsUseCase
+import com.mobileprogramming.finsheet.domain.usecase.transaction.SyncResult
 
 data class HistoryUiState(
     val transactions: List<TransactionGroupUI> = emptyList(),
     val isLoading: Boolean = true,
-    val selectedFilter: TransactionFilter = TransactionFilter.SEMUA
+    val selectedFilter: TransactionFilter = TransactionFilter.SEMUA,
+    val startDateMillis: Long? = null,
+    val endDateMillis: Long? = null
 )
 
 data class TransactionGroupUI(
@@ -35,43 +42,40 @@ data class TransactionItemUI(
     val colorHex: String?,
     val amount: String,
     val isExpense: Boolean,
-    val timeMillis: Long
+    val timeMillis: Long,
+    val receiptLocalPath: String? = null
 )
 
 enum class TransactionFilter { SEMUA, PENGELUARAN, PEMASUKAN }
 
 class HistoryViewModel(
     private val getAllTransactionsUseCase: GetAllTransactionsUseCase,
-    private val sharedPreferences: SharedPreferences
+    private val syncTransactionsUseCase: SyncTransactionsUseCase,
+    private val getActiveCurrencyFlowUseCase: GetActiveCurrencyFlowUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HistoryUiState())
     val uiState: StateFlow<HistoryUiState> = _uiState.asStateFlow()
 
     private var allTransactions: List<TransactionItemModel> = emptyList()
-    private var currencyCode = "IDR"
+    private var activeCurrency: CurrencyEntity? = null
 
     init {
-        refresh()
         loadTransactions()
-    }
-
-    fun refresh() {
-        currencyCode = sharedPreferences.getString("main_currency", "IDR") ?: "IDR"
-        updateFilteredTransactions()
     }
 
     private fun loadTransactions() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
-            getAllTransactionsUseCase()
-                .catch { e ->
-                    _uiState.update { it.copy(isLoading = false) }
-                }
-                .collect { transactions ->
-                    allTransactions = transactions
-                    updateFilteredTransactions()
-                }
+            
+            combine(
+                getAllTransactionsUseCase().catch { e -> _uiState.update { it.copy(isLoading = false) } },
+                getActiveCurrencyFlowUseCase().catch { e -> e.printStackTrace() }
+            ) { transactions, currency ->
+                allTransactions = transactions
+                activeCurrency = currency
+                updateFilteredTransactions()
+            }.collect {}
         }
     }
 
@@ -80,13 +84,58 @@ class HistoryViewModel(
         updateFilteredTransactions()
     }
 
+    fun setDateRange(start: Long?, end: Long?) {
+        _uiState.update { it.copy(startDateMillis = start, endDateMillis = end) }
+        updateFilteredTransactions()
+    }
+
     private fun updateFilteredTransactions() {
+        val rate = activeCurrency?.rateToIdr ?: 1.0
+        val symbol = activeCurrency?.symbol ?: "Rp"
+        
+        val format = NumberFormat.getCurrencyInstance(Locale("en", "US"))
+        format.maximumFractionDigits = 0
+        format.minimumFractionDigits = 0
+        val customFormat = { amount: Double ->
+            format.format(amount).replace("$", "$symbol ")
+        }
+
         val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
 
-        val filtered = when (_uiState.value.selectedFilter) {
+        var filtered = when (_uiState.value.selectedFilter) {
             TransactionFilter.SEMUA -> allTransactions
             TransactionFilter.PENGELUARAN -> allTransactions.filter { it.isExpense }
             TransactionFilter.PEMASUKAN -> allTransactions.filter { !it.isExpense }
+        }
+
+        val start = _uiState.value.startDateMillis
+        val end = _uiState.value.endDateMillis
+        
+        if (start != null) {
+            val filterStartCal = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC")).apply { timeInMillis = start }
+            val localStartCal = java.util.Calendar.getInstance().apply {
+                set(filterStartCal.get(java.util.Calendar.YEAR), filterStartCal.get(java.util.Calendar.MONTH), filterStartCal.get(java.util.Calendar.DAY_OF_MONTH), 0, 0, 0)
+                set(java.util.Calendar.MILLISECOND, 0)
+            }
+            val localStartMillis = localStartCal.timeInMillis
+            
+            val localEndMillis = if (end != null) {
+                val filterEndCal = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC")).apply { timeInMillis = end }
+                val endCal = java.util.Calendar.getInstance().apply {
+                    set(filterEndCal.get(java.util.Calendar.YEAR), filterEndCal.get(java.util.Calendar.MONTH), filterEndCal.get(java.util.Calendar.DAY_OF_MONTH), 23, 59, 59)
+                    set(java.util.Calendar.MILLISECOND, 999)
+                }
+                endCal.timeInMillis
+            } else {
+                val endCal = java.util.Calendar.getInstance().apply { timeInMillis = localStartMillis }
+                endCal.set(java.util.Calendar.HOUR_OF_DAY, 23)
+                endCal.set(java.util.Calendar.MINUTE, 59)
+                endCal.set(java.util.Calendar.SECOND, 59)
+                endCal.set(java.util.Calendar.MILLISECOND, 999)
+                endCal.timeInMillis
+            }
+            
+            filtered = filtered.filter { tx -> tx.transactionDate in localStartMillis..localEndMillis }
         }
 
         // Group by Date Label
@@ -99,21 +148,22 @@ class HistoryViewModel(
                 dateLabel = dateLabel,
                 items = txList.map { tx ->
                     val sign = if (tx.isExpense) "-" else "+"
-                    val amountStr = com.mobileprogramming.finsheet.core.utils.CurrencyFormatter.format(tx.amount.toDouble(), currencyCode)
+                    val amountStr = customFormat(tx.amount * rate)
                     TransactionItemUI(
                         id = tx.id,
                         title = tx.title,
-                        time = timeFormat.format(Date(tx.timeMillis)),
+                        time = timeFormat.format(Date(tx.createdAt)),
                         category = tx.categoryName,
                         iconName = tx.iconName,
                         colorHex = tx.colorHex,
                         amount = "$sign$amountStr",
                         isExpense = tx.isExpense,
-                        timeMillis = tx.timeMillis
+                        timeMillis = tx.timeMillis,
+                        receiptLocalPath = tx.receiptLocalPath
                     )
                 }.sortedByDescending { it.timeMillis }
             )
-        }.sortedByDescending { it.items.firstOrNull()?.timeMillis ?: 0L }
+        }
 
         _uiState.update { it.copy(
             transactions = groups,
@@ -136,6 +186,13 @@ class HistoryViewModel(
                 val sdf = SimpleDateFormat("d MMM yyyy", Locale.forLanguageTag("id-ID"))
                 sdf.format(Date(millis))
             }
+        }
+    }
+
+    fun syncToGoogleSheets(email: String, onComplete: (SyncResult) -> Unit) {
+        viewModelScope.launch {
+            val result = syncTransactionsUseCase(email)
+            onComplete(result)
         }
     }
 }

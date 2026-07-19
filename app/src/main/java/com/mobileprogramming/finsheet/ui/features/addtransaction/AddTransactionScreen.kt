@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -98,8 +99,26 @@ private fun createCameraUri(context: Context): Uri {
  * EXIF orientation diabaikan oleh BitmapFactory.
  */
 private fun decodeBitmapWithCorrectOrientation(context: Context, uri: Uri): Bitmap? {
+    val options = BitmapFactory.Options()
+    options.inJustDecodeBounds = true
+    context.contentResolver.openInputStream(uri)?.use { stream ->
+        BitmapFactory.decodeStream(stream, null, options)
+    }
+
+    // Downsample if image is too large (limit to max 1024x1024 to prevent OutOfMemoryError)
+    val maxDim = 1024
+    var scale = 1
+    if (options.outWidth > maxDim || options.outHeight > maxDim) {
+        val widthRatio = Math.round(options.outWidth.toFloat() / maxDim.toFloat())
+        val heightRatio = Math.round(options.outHeight.toFloat() / maxDim.toFloat())
+        scale = if (widthRatio < heightRatio) widthRatio else heightRatio
+    }
+
+    options.inJustDecodeBounds = false
+    options.inSampleSize = scale
+
     val originalBitmap = context.contentResolver.openInputStream(uri)?.use { stream ->
-        BitmapFactory.decodeStream(stream)
+        BitmapFactory.decodeStream(stream, null, options)
     } ?: return null
 
     val exifOrientation = context.contentResolver.openInputStream(uri)?.use { stream ->
@@ -138,14 +157,10 @@ fun AddTransactionScreen(
 ) {
     val state by viewModel.state.collectAsState()
     
-    val context = LocalContext.current
-    val sharedPreferences = remember {
-        context.getSharedPreferences("finsheet_prefs", android.content.Context.MODE_PRIVATE)
-    }
-    var selectedCurrency by remember {
-        mutableStateOf(sharedPreferences.getString("main_currency", "IDR") ?: "IDR")
-    }
+    /* ---- Local UI state ---- */
+    var selectedCurrency by remember { mutableStateOf("IDR") }
     var currencyDropdownExpanded by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
 
     // DatePicker state
     var showDatePicker by remember { mutableStateOf(false) }
@@ -171,19 +186,32 @@ fun AddTransactionScreen(
     val primaryBlue = Color(0xFF1A5BEB)
 
     // Image state
-    var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
+    val context = LocalContext.current
+    
+    // Gunakan URI dari state ViewModel, agar tersimpan ke database!
+    val selectedImageUri = state.receiptLocalPath?.let { Uri.parse(it) }
     var showImageSourceDialog by remember { mutableStateOf(false) }
+    var showFullImageDialog by remember { mutableStateOf(false) }
 
-    // URI sementara untuk foto kamera
-    val cameraImageUri = remember {
-        createCameraUri(context)
+    // URI sementara untuk foto kamera (Gunakan rememberSaveable agar tidak hilang saat activity mati)
+    var cameraImageUriString by rememberSaveable { mutableStateOf<String?>(null) }
+    val cameraImageUri = remember(cameraImageUriString) {
+        if (cameraImageUriString != null) {
+            Uri.parse(cameraImageUriString)
+        } else {
+            createCameraUri(context).also {
+                cameraImageUriString = it.toString()
+            }
+        }
     }
 
     // Launcher kamera — TakePicture mengembalikan Boolean (berhasil/tidak)
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicture()
     ) { success ->
-        if (success) selectedImageUri = cameraImageUri
+        if (success) {
+            viewModel.onImageSelected(cameraImageUri.toString())
+        }
     }
 
     // Launcher permintaan izin CAMERA (runtime permission)
@@ -200,7 +228,9 @@ fun AddTransactionScreen(
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri ->
-        if (uri != null) selectedImageUri = uri
+        if (uri != null) {
+            viewModel.onImageSelected(uri.toString())
+        }
     }
 
     // Helper: buka kamera dengan cek permission terlebih dahulu
@@ -238,11 +268,80 @@ fun AddTransactionScreen(
                     containerColor = MaterialTheme.colorScheme.surface,
                     titleContentColor = MaterialTheme.colorScheme.onSurface,
                     navigationIconContentColor = MaterialTheme.colorScheme.onSurface
-                )
+                ),
+                actions = {
+                    if (state.isEditMode) {
+                        IconButton(onClick = { showDeleteDialog = true }) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "Hapus Transaksi",
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    }
+                }
             )
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
+
+        // ---- Dialog Konfirmasi Hapus ----
+        if (showDeleteDialog) {
+            AlertDialog(
+                onDismissRequest = { showDeleteDialog = false },
+                icon = {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                },
+                title = {
+                    Text(
+                        text = "Hapus Transaksi?",
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.Bold
+                        )
+                    )
+                },
+                text = {
+                    Text(
+                        text = "Transaksi ini akan dihapus secara permanen dan tidak dapat dikembalikan.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            showDeleteDialog = false
+                            if (state.transactionId != null) {
+                                viewModel.deleteTransaction(state.transactionId!!) {
+                                    onNavigateBack()
+                                }
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error,
+                            contentColor = MaterialTheme.colorScheme.onError
+                        ),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text("Hapus", fontWeight = FontWeight.SemiBold)
+                    }
+                },
+                dismissButton = {
+                    OutlinedButton(
+                        onClick = { showDeleteDialog = false },
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text("Batal")
+                    }
+                },
+                shape = RoundedCornerShape(16.dp)
+            )
+        }
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -265,16 +364,9 @@ fun AddTransactionScreen(
             // 2. Amount Input Card
             // ----------------------------------------------------------------
             AmountInputCard(
-                currency = selectedCurrency,
+                activeCurrency = state.activeCurrency,
                 amountText = state.amount,
                 onAmountChange = { viewModel.onAmountChanged(it) },
-                dropdownExpanded = currencyDropdownExpanded,
-                onDropdownToggle = { currencyDropdownExpanded = !currencyDropdownExpanded },
-                onDropdownDismiss = { currencyDropdownExpanded = false },
-                onCurrencySelected = {
-                    selectedCurrency = it
-                    currencyDropdownExpanded = false
-                },
                 primaryBlue = primaryBlue
             )
 
@@ -491,12 +583,54 @@ fun AddTransactionScreen(
                         decodeBitmapWithCorrectOrientation(context, uri)?.asImageBitmap()
                     }
                 }
+                // Dialog fullscreen gambar
+                if (showFullImageDialog && imageBitmap != null) {
+                    androidx.compose.ui.window.Dialog(
+                        onDismissRequest = { showFullImageDialog = false },
+                        properties = androidx.compose.ui.window.DialogProperties(
+                            usePlatformDefaultWidth = false
+                        )
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color.Black)
+                                .clickable { showFullImageDialog = false },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Image(
+                                bitmap = imageBitmap,
+                                contentDescription = "Foto Transaksi Fullscreen",
+                                contentScale = ContentScale.Fit,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                            IconButton(
+                                onClick = { showFullImageDialog = false },
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(16.dp)
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.Black.copy(alpha = 0.6f))
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Close,
+                                    contentDescription = "Tutup",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+
                 // Preview foto yang dipilih
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(160.dp)
                         .clip(RoundedCornerShape(14.dp))
+                        .clickable { if (imageBitmap != null) showFullImageDialog = true }
                 ) {
                     imageBitmap?.let {
                         Image(
@@ -508,7 +642,7 @@ fun AddTransactionScreen(
                     }
                     // Tombol hapus foto
                     IconButton(
-                        onClick = { selectedImageUri = null },
+                        onClick = { viewModel.onImageSelected(null) },
                         modifier = Modifier
                             .align(Alignment.TopEnd)
                             .padding(6.dp)
@@ -626,16 +760,23 @@ private fun SegmentedTypeToggle(
 
 @Composable
 private fun AmountInputCard(
-    currency: String,
+    activeCurrency: com.mobileprogramming.finsheet.data.local.entity.CurrencyEntity?,
     amountText: String,
     onAmountChange: (String) -> Unit,
-    dropdownExpanded: Boolean,
-    onDropdownToggle: () -> Unit,
-    onDropdownDismiss: () -> Unit,
-    onCurrencySelected: (String) -> Unit,
     primaryBlue: Color
 ) {
-    val currencies = listOf("USD", "IDR", "EUR", "SGD", "JPY")
+    val currencyCode = activeCurrency?.code ?: "IDR"
+    val rate = activeCurrency?.rateToIdr ?: 1.0
+    val symbol = activeCurrency?.symbol ?: "Rp"
+    
+    // Calculate IDR preview
+    val amountVal = amountText.toDoubleOrNull() ?: 0.0
+    val idrVal = (amountVal / rate)
+    
+    val format = java.text.NumberFormat.getCurrencyInstance(java.util.Locale("id", "ID"))
+    format.maximumFractionDigits = 0
+    format.minimumFractionDigits = 0
+    val idrPreview = format.format(idrVal).replace("Rp", "Rp ")
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -654,7 +795,7 @@ private fun AmountInputCard(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Currency Dropdown
+                // Currency Code Box
                 Box {
                     Row(
                         modifier = Modifier
@@ -665,35 +806,17 @@ private fun AmountInputCard(
                                 color = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),
                                 shape = RoundedCornerShape(8.dp)
                             )
-                            .clickable { onDropdownToggle() }
                             .padding(horizontal = 10.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Text(
-                            text = currency,
+                            text = currencyCode,
                             style = MaterialTheme.typography.labelLarge.copy(
                                 fontWeight = FontWeight.Bold
                             ),
                             color = MaterialTheme.colorScheme.onSurface
                         )
-                        Icon(
-                            imageVector = Icons.Filled.KeyboardArrowDown,
-                            contentDescription = "Pilih Mata Uang",
-                            modifier = Modifier.size(16.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    DropdownMenu(
-                        expanded = dropdownExpanded,
-                        onDismissRequest = onDropdownDismiss
-                    ) {
-                        currencies.forEach { cur ->
-                            DropdownMenuItem(
-                                text = { Text(cur) },
-                                onClick = { onCurrencySelected(cur) }
-                            )
-                        }
                     }
                 }
 
@@ -716,42 +839,11 @@ private fun AmountInputCard(
             }
 
             Spacer(modifier = Modifier.height(4.dp))
-            val eqText = remember(amountText, currency) {
-                val amount = amountText.toDoubleOrNull() ?: 0.0
-                if (amount <= 0.0) "" else {
-                    when (currency) {
-                        "IDR" -> {
-                            val usd = amount / 15000.0
-                            val formatted = String.format(java.util.Locale.US, "%,.2f", usd)
-                            "≈ $formatted"
-                        }
-                        "USD" -> {
-                            val idr = amount * 15000.0
-                            "≈ Rp " + java.text.DecimalFormat("#,###").format(idr).replace(',', '.')
-                        }
-                        "EUR" -> {
-                            val idr = amount * 16000.0
-                            "≈ Rp " + java.text.DecimalFormat("#,###").format(idr).replace(',', '.')
-                        }
-                        "JPY" -> {
-                            val idr = amount * 100.0
-                            "≈ Rp " + java.text.DecimalFormat("#,###").format(idr).replace(',', '.')
-                        }
-                        "SGD" -> {
-                            val idr = amount * 11000.0
-                            "≈ Rp " + java.text.DecimalFormat("#,###").format(idr).replace(',', '.')
-                        }
-                        else -> ""
-                    }
-                }
-            }
-            if (eqText.isNotEmpty()) {
-                Text(
-                    text = eqText,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            Text(
+                text = "≈ $idrPreview",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }

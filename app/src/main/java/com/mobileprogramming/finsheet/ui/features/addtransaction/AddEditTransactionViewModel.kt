@@ -7,6 +7,8 @@ import com.mobileprogramming.finsheet.domain.usecase.AddTransactionUseCase
 import com.mobileprogramming.finsheet.domain.usecase.GetCategoriesByTypeUseCase
 import com.mobileprogramming.finsheet.domain.usecase.GetTransactionByIdUseCase
 import com.mobileprogramming.finsheet.domain.usecase.UpdateTransactionUseCase
+import com.mobileprogramming.finsheet.domain.usecase.currency.GetActiveCurrencyFlowUseCase
+import com.mobileprogramming.finsheet.data.local.entity.CurrencyEntity
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -18,6 +20,7 @@ import android.content.SharedPreferences
 import com.mobileprogramming.finsheet.domain.usecase.budget.CheckTransactionBudgetLimitUseCase
 import com.mobileprogramming.finsheet.domain.usecase.budget.BudgetExceedType
 import com.mobileprogramming.finsheet.core.utils.NotificationHelper
+import kotlin.math.roundToInt
 
 data class AddEditTransactionState(
     val transactionId: String? = null,
@@ -26,8 +29,10 @@ data class AddEditTransactionState(
     val amount: String = "",
     val notes: String = "",
     val date: Long = System.currentTimeMillis(),
+    val receiptLocalPath: String? = null,
     val categories: List<CategoryEntity> = emptyList(),
     val selectedCategory: CategoryEntity? = null,
+    val activeCurrency: CurrencyEntity? = null,
     val isSaving: Boolean = false,
     val saveSuccess: Boolean = false,
     val error: String? = null
@@ -36,9 +41,10 @@ data class AddEditTransactionState(
 class AddEditTransactionViewModel(
     private val addTransactionUseCase: AddTransactionUseCase,
     private val updateTransactionUseCase: UpdateTransactionUseCase,
+    private val deleteTransactionUseCase: com.mobileprogramming.finsheet.domain.usecase.transaction.DeleteTransactionUseCase,
     private val getTransactionByIdUseCase: GetTransactionByIdUseCase,
     private val getCategoriesByTypeUseCase: GetCategoriesByTypeUseCase,
-    private val deleteCategoryUseCase: com.mobileprogramming.finsheet.domain.usecase.DeleteCategoryUseCase,
+    private val getActiveCurrencyFlowUseCase: GetActiveCurrencyFlowUseCase,
     private val checkTransactionBudgetLimitUseCase: CheckTransactionBudgetLimitUseCase,
     private val sharedPreferences: SharedPreferences,
     private val context: Context
@@ -51,6 +57,23 @@ class AddEditTransactionViewModel(
 
     init {
         loadCategories()
+        loadActiveCurrency()
+    }
+
+    private fun loadActiveCurrency() {
+        viewModelScope.launch {
+            getActiveCurrencyFlowUseCase().collect { currency ->
+                _state.update { it.copy(activeCurrency = currency) }
+                
+                // If editing and amount is empty (first load), set amount based on currency
+                if (existingTransaction != null && _state.value.amount.isEmpty()) {
+                    val rate = currency?.rateToIdr ?: 1.0
+                    val converted = existingTransaction!!.amount * rate
+                    val amountStr = if (converted % 1.0 == 0.0) converted.toInt().toString() else converted.toString()
+                    _state.update { it.copy(amount = amountStr) }
+                }
+            }
+        }
     }
 
     fun initForEdit(transactionId: String?) {
@@ -60,13 +83,18 @@ class AddEditTransactionViewModel(
             if (transaction != null) {
                 existingTransaction = transaction
                 _state.update {
+                    val rate = it.activeCurrency?.rateToIdr ?: 1.0
+                    val converted = transaction.amount * rate
+                    val amountStr = if (converted % 1.0 == 0.0) converted.toInt().toString() else converted.toString()
+                    
                     it.copy(
                         transactionId = transactionId,
                         isEditMode = true,
                         transactionType = transaction.transactionType,
-                        amount = transaction.amount.toString(),
+                        amount = amountStr,
                         notes = transaction.notes ?: "",
-                        date = transaction.transactionDate
+                        date = transaction.transactionDate,
+                        receiptLocalPath = transaction.receiptLocalPath
                     )
                 }
                 loadCategories() // Reload categories based on the transaction's type
@@ -101,8 +129,8 @@ class AddEditTransactionViewModel(
     }
 
     fun onAmountChanged(amount: String) {
-        // Allow empty or numeric
-        if (amount.isEmpty() || amount.matches(Regex("^\\d+\$"))) {
+        // Allow empty or numeric with optional decimal up to 2 places
+        if (amount.isEmpty() || amount.matches(Regex("^\\d*\\.?\\d{0,2}$"))) {
             _state.update { it.copy(amount = amount) }
         }
     }
@@ -119,47 +147,36 @@ class AddEditTransactionViewModel(
         _state.update { it.copy(selectedCategory = category) }
     }
 
+    fun onImageSelected(uri: String?) {
+        _state.update { it.copy(receiptLocalPath = uri) }
+    }
+
     fun saveTransaction() {
         viewModelScope.launch {
             _state.update { it.copy(isSaving = true, error = null) }
             
-            val amountInt = _state.value.amount.toIntOrNull()
-            if (amountInt == null || amountInt <= 0) {
+            val inputAmount = _state.value.amount.toDoubleOrNull()
+            if (inputAmount == null || inputAmount <= 0) {
                 _state.update { it.copy(isSaving = false, error = "Amount must be greater than 0") }
                 return@launch
             }
+            
+            val rate = _state.value.activeCurrency?.rateToIdr ?: 1.0
+            val amountVal = inputAmount / rate
 
             val categoryId = _state.value.selectedCategory?.id
 
             try {
-                if (_state.value.isEditMode && existingTransaction != null) {
-                    updateTransactionUseCase(
-                        existingTransaction = existingTransaction!!,
-                        categoryId = categoryId,
-                        amount = amountInt,
-                        transactionType = _state.value.transactionType,
-                        notes = _state.value.notes.takeIf { it.isNotBlank() },
-                        transactionDate = _state.value.date
-                    )
-                } else {
-                    addTransactionUseCase(
-                        categoryId = categoryId,
-                        amount = amountInt,
-                        transactionType = _state.value.transactionType,
-                        notes = _state.value.notes.takeIf { it.isNotBlank() },
-                        transactionDate = _state.value.date
-                    )
-                }
-                
-                // Logic Peringatan Anggaran Terlewati
-                if (_state.value.transactionType == "EXPENSE") {
+                // Logic Peringatan Anggaran Terlewati dicek SEBELUM menyimpan ke DB
+                // agar transaksi baru belum masuk allTransactions saat dihitung
+                if (_state.value.transactionType == "EXPENSE" && !_state.value.isEditMode) {
                     val limitResults = checkTransactionBudgetLimitUseCase(
                         categoryId = categoryId,
-                        amount = amountInt.toLong(),
+                        amount = amountVal,
                         date = _state.value.date,
-                        globalMonthlyLimit = sharedPreferences.getLong("total_monthly_budget", 3500000L)
+                        globalMonthlyLimit = sharedPreferences.getLong("total_monthly_budget", 0L).toDouble()
                     )
-                    
+
                     limitResults.forEach { result ->
                         val isEnabled = when (result.type) {
                             BudgetExceedType.DAILY -> sharedPreferences.getBoolean("anggaran_harian_terlewati", true)
@@ -167,7 +184,7 @@ class AddEditTransactionViewModel(
                             BudgetExceedType.MONTHLY -> sharedPreferences.getBoolean("anggaran_bulanan_terlewati", true)
                             BudgetExceedType.GLOBAL_MONTHLY -> sharedPreferences.getBoolean("anggaran_bulanan_terlewati", true)
                         }
-                        
+
                         if (isEnabled) {
                             val title = when (result.type) {
                                 BudgetExceedType.DAILY -> "Batas Anggaran Harian Terlewati!"
@@ -175,13 +192,13 @@ class AddEditTransactionViewModel(
                                 BudgetExceedType.MONTHLY -> "Batas Anggaran Bulanan Terlewati!"
                                 BudgetExceedType.GLOBAL_MONTHLY -> "Total Anggaran Bulanan Terlewati!"
                             }
-                            
+
                             val catName = result.categoryName ?: "Seluruh Kategori (Global)"
                             val formatter = java.text.DecimalFormat("#,###", java.text.DecimalFormatSymbols(java.util.Locale.Builder().setLanguage("id").setRegion("ID").build()))
                             val spentFormatted = formatter.format(result.spentAmount).replace(',', '.')
                             val limitFormatted = formatter.format(result.budgetLimit).replace(',', '.')
                             val message = "Pengeluaran untuk $catName mencapai Rp $spentFormatted (Batas: Rp $limitFormatted)."
-                            
+
                             NotificationHelper.showBudgetNotification(
                                 context = context,
                                 title = title,
@@ -191,7 +208,29 @@ class AddEditTransactionViewModel(
                         }
                     }
                 }
-                
+
+                // Simpan transaksi ke DB setelah pengecekan notifikasi
+                if (_state.value.isEditMode && existingTransaction != null) {
+                    updateTransactionUseCase(
+                        existingTransaction = existingTransaction!!,
+                        categoryId = categoryId,
+                        amount = amountVal,
+                        transactionType = _state.value.transactionType,
+                        notes = _state.value.notes.takeIf { it.isNotBlank() },
+                        transactionDate = _state.value.date,
+                        receiptLocalPath = _state.value.receiptLocalPath
+                    )
+                } else {
+                    addTransactionUseCase(
+                        categoryId = categoryId,
+                        amount = amountVal,
+                        transactionType = _state.value.transactionType,
+                        notes = _state.value.notes.takeIf { it.isNotBlank() },
+                        transactionDate = _state.value.date,
+                        receiptLocalPath = _state.value.receiptLocalPath
+                    )
+                }
+
                 _state.update { it.copy(isSaving = false, saveSuccess = true) }
             } catch (e: Exception) {
                 _state.update { it.copy(isSaving = false, error = e.message ?: "Failed to save") }
@@ -199,13 +238,10 @@ class AddEditTransactionViewModel(
         }
     }
 
-    fun deleteCategory(categoryId: String) {
+    fun deleteTransaction(transactionId: String, onComplete: () -> Unit) {
         viewModelScope.launch {
-            try {
-                deleteCategoryUseCase(categoryId)
-            } catch (e: Exception) {
-                _state.update { it.copy(error = e.message ?: "Failed to delete category") }
-            }
+            deleteTransactionUseCase(transactionId)
+            onComplete()
         }
     }
 }
