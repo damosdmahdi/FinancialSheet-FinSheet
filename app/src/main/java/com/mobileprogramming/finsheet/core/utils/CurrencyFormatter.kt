@@ -34,6 +34,10 @@ object CurrencyFormatter {
 
     fun format(amount: String, currencyCode: String): String {
         if (amount.isBlank()) return getSymbol(currencyCode) + " 0"
+        val directParsed = amount.toDoubleOrNull()
+        if (directParsed != null) {
+            return format(directParsed, currencyCode)
+        }
         val clean = amount.filter { it.isDigit() }
         val parsed = clean.toDoubleOrNull() ?: 0.0
         return format(parsed, currencyCode)

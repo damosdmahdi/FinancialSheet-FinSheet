@@ -86,6 +86,13 @@ fun AddCategoryScreen(
 ) {
     val state by viewModel.state.collectAsState()
     
+    val context = androidx.compose.ui.platform.LocalContext.current
+    LaunchedEffect(state.error) {
+        state.error?.let { err ->
+            android.widget.Toast.makeText(context, err, android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
+
     LaunchedEffect(state.saveSuccess) {
         if (state.saveSuccess) {
             state.createdCategoryId?.let { onCategorySaved(it) }
@@ -147,6 +154,8 @@ fun AddCategoryScreen(
                 onValueChange = { viewModel.onNameChanged(it) },
                 primaryBlue   = primaryBlue
             )
+
+
 
             // ----------------------------------------------------------------
             // 2. Pilih Ikon

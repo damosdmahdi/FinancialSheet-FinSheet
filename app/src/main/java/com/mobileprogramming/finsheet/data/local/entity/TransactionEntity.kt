@@ -14,6 +14,9 @@ data class TransactionEntity(
     
     val amount: Double,
     
+    @ColumnInfo(name = "account_id")
+    val accountId: String? = null,
+    
     @ColumnInfo(name = "transaction_type")
     val transactionType: String,
     
@@ -38,5 +41,11 @@ data class TransactionEntity(
     val updatedAt: Long = System.currentTimeMillis(),
     
     @ColumnInfo(name = "deleted_at")
-    val deletedAt: Long? = null
+    val deletedAt: Long? = null,
+    
+    @ColumnInfo(name = "status")
+    val status: String? = null,
+
+    @ColumnInfo(name = "is_ditalangin")
+    val isDitalangin: Boolean = false
 )

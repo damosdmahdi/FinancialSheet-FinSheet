@@ -3,6 +3,11 @@ package com.mobileprogramming.finsheet.ui.features.history
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -12,7 +17,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.outlined.*
+import androidx.compose.material.icons.filled.CompareArrows
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,6 +63,7 @@ fun HistoryScreen(
     onNavigateToAddTransaction: () -> Unit = {},
     onNavigateToDashboard: () -> Unit = {},
     onNavigateToTransaction: (String) -> Unit = {},
+    onNavigateToTransfer: (String) -> Unit = {},
     onNavigateToAnggaran: () -> Unit = {},
     onNavigateToSettings: () -> Unit = {}
 ) {
@@ -90,6 +100,8 @@ fun HistoryScreen(
     
     var selectedImagePath by remember { mutableStateOf<String?>(null) }
     var showFullImageDialog by remember { mutableStateOf(false) }
+
+    var selectedTransactionToAction by remember { mutableStateOf<TransactionItemUI?>(null) }
 
     if (showDatePicker) {
         DatePickerDialog(
@@ -166,6 +178,179 @@ fun HistoryScreen(
         }
     }
 
+    if (selectedTransactionToAction != null) {
+        val item = selectedTransactionToAction!!
+        val isLunas = item.status == "LUNAS"
+        val label = if (item.transactionType == "DEBT") "Hutang" else "Piutang"
+        
+        if (isLunas) {
+            AlertDialog(
+                onDismissRequest = { selectedTransactionToAction = null },
+                title = {
+                    Text(text = "Batalkan Pelunasan", fontWeight = FontWeight.Bold)
+                },
+                text = {
+                    Text(text = "Apakah Anda ingin membatalkan status lunas untuk catatan $label ini?")
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            viewModel.undoLunas(item.id)
+                            selectedTransactionToAction = null
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary
+                        )
+                    ) {
+                        Text("Ya, Batalkan")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { selectedTransactionToAction = null }) {
+                        Text("Batal")
+                    }
+                }
+            )
+        } else {
+            if (item.transactionType == "DEBT" && item.isDitalangin) {
+                val accounts by viewModel.accounts.collectAsStateWithLifecycle()
+                var selectedAccountId by remember { mutableStateOf<String?>(null) }
+
+                AlertDialog(
+                    onDismissRequest = { selectedTransactionToAction = null },
+                    title = {
+                        Text(
+                            text = "Lunasi Hutang (Ditalangi)",
+                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+                        )
+                    },
+                    text = {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            Text(
+                                text = "Pilih rekening yang digunakan untuk membayar hutang ini:",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(max = 240.dp)
+                                    .verticalScroll(rememberScrollState()),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                accounts.forEach { acc ->
+                                    val isSelected = acc.id == selectedAccountId
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(
+                                                color = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.15f)
+                                            )
+                                            .clickable {
+                                                selectedAccountId = acc.id
+                                            }
+                                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(36.dp)
+                                                    .clip(CircleShape)
+                                                    .background(CategoryIconMapper.getBackgroundColorByHex(acc.color)),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(
+                                                    imageVector = CategoryIconMapper.getIconByName(acc.icon),
+                                                    contentDescription = null,
+                                                    tint = CategoryIconMapper.getColorByHex(acc.color),
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                            }
+                                            Spacer(modifier = Modifier.width(12.dp))
+                                            Text(
+                                                text = acc.name,
+                                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                                                color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                                            )
+                                        }
+                                        RadioButton(
+                                            selected = isSelected,
+                                            onClick = { selectedAccountId = acc.id }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                if (selectedAccountId != null) {
+                                    viewModel.markAsLunas(item.id, selectedAccountId)
+                                    selectedTransactionToAction = null
+                                }
+                            },
+                            enabled = selectedAccountId != null,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary
+                            ),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text("Ya, Lunas", fontWeight = FontWeight.SemiBold)
+                        }
+                    },
+                    dismissButton = {
+                        OutlinedButton(
+                            onClick = { selectedTransactionToAction = null },
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text("Batal")
+                        }
+                    },
+                    shape = RoundedCornerShape(16.dp),
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer
+                )
+            } else {
+                AlertDialog(
+                    onDismissRequest = { selectedTransactionToAction = null },
+                    title = {
+                        Text(text = "Lunasi $label", fontWeight = FontWeight.Bold)
+                    },
+                    text = {
+                        Text(text = "Apakah Anda ingin menandai catatan $label ini sebagai lunas?")
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                viewModel.markAsLunas(item.id, null)
+                                selectedTransactionToAction = null
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary
+                            )
+                        ) {
+                            Text("Ya, Lunas")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { selectedTransactionToAction = null }) {
+                            Text("Batal")
+                        }
+                    }
+                )
+            }
+        }
+    }
+
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
@@ -226,15 +411,37 @@ fun HistoryScreen(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     val context = LocalContext.current
-                    val isUserLoggedIn = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser != null
+                    val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+                    val prefs = remember(context) { context.getSharedPreferences("finsheet_prefs", android.content.Context.MODE_PRIVATE) }
+                    
+                    var hasManualSync by remember {
+                        mutableStateOf(
+                            !prefs.getString("apps_script_url", null).isNullOrBlank()
+                        )
+                    }
+
+                    DisposableEffect(prefs) {
+                        val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+                            if (key == "apps_script_url") {
+                                hasManualSync = !prefs.getString("apps_script_url", null).isNullOrBlank()
+                            }
+                        }
+                        prefs.registerOnSharedPreferenceChangeListener(listener)
+                        onDispose {
+                            prefs.unregisterOnSharedPreferenceChangeListener(listener)
+                        }
+                    }
+
+                    val canSync = currentUser != null && (!currentUser.isAnonymous || hasManualSync)
+
                     SyncStatusChip(
                         isSyncing = isSyncing,
-                        isUserLoggedIn = isUserLoggedIn,
+                        isUserLoggedIn = canSync,
                         primaryBlue = primaryBlue,
                         onClick   = {
                             if (!isSyncing) {
                                 isSyncing = true
-                                val email = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.email
+                                val email = currentUser?.email
                                 if (email != null) {
                                     viewModel.syncToGoogleSheets(email) { result ->
                                         isSyncing = false
@@ -256,9 +463,30 @@ fun HistoryScreen(
                                             }
                                         }
                                     }
+                                } else if (currentUser != null && currentUser.isAnonymous && hasManualSync) {
+                                    viewModel.syncToGoogleSheets("guest") { result ->
+                                        isSyncing = false
+                                        when (result) {
+                                            is SyncResult.Success -> {
+                                                android.widget.Toast.makeText(context, "Berhasil Sinkron (Manual)!", android.widget.Toast.LENGTH_SHORT).show()
+                                            }
+                                            is SyncResult.NoNewData -> {
+                                                android.widget.Toast.makeText(context, "Sudah tersinkronisasi, tidak ada data baru.", android.widget.Toast.LENGTH_SHORT).show()
+                                            }
+                                            is SyncResult.TokenError -> {
+                                                android.widget.Toast.makeText(context, "Token akses manual salah atau kedaluwarsa. Silakan perbarui di menu Tamu.", android.widget.Toast.LENGTH_LONG).show()
+                                            }
+                                            is SyncResult.SheetError -> {
+                                                android.widget.Toast.makeText(context, "Gagal membuat/menemukan spreadsheet. Periksa ID spreadsheet Anda.", android.widget.Toast.LENGTH_LONG).show()
+                                            }
+                                            is SyncResult.Error -> {
+                                                android.widget.Toast.makeText(context, result.message ?: "Gagal Sinkron", android.widget.Toast.LENGTH_SHORT).show()
+                                            }
+                                        }
+                                    }
                                 } else {
                                     isSyncing = false
-                                    android.widget.Toast.makeText(context, "Harap login dengan Google", android.widget.Toast.LENGTH_SHORT).show()
+                                    android.widget.Toast.makeText(context, "Harap login dengan Google atau atur akses Spreadsheet manual di menu Tamu (klik & tahan).", android.widget.Toast.LENGTH_LONG).show()
                                 }
                             }
                         }
@@ -293,14 +521,26 @@ fun HistoryScreen(
                         CircularProgressIndicator(color = primaryBlue)
                     }
                 }
-            } else if (uiState.transactions.isEmpty()) {
+            } else if (uiState.groups.isEmpty()) {
                 item(key = "empty_state") {
                     Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                        Text("Belum ada transaksi.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        val emptyText = when (uiState.selectedFilter) {
+                            TransactionFilter.SEMUA -> "Belum ada transaksi atau transfer."
+                            TransactionFilter.PENGELUARAN -> "Belum ada transaksi pengeluaran."
+                            TransactionFilter.PEMASUKAN -> "Belum ada transaksi pemasukan."
+                            TransactionFilter.TRANSFER -> "Belum ada transfer antar rekening."
+                            TransactionFilter.HUTANG -> "Belum ada catatan hutang."
+                            TransactionFilter.PIUTANG -> "Belum ada catatan piutang."
+                        }
+                        Text(
+                            text = emptyText,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             } else {
-                uiState.transactions.forEachIndexed { index, group ->
+                uiState.groups.forEachIndexed { index, group ->
                     item(key = "header_${group.dateLabel}_$index") {
                         Text(
                             text     = group.dateLabel,
@@ -318,18 +558,31 @@ fun HistoryScreen(
                     items(
                         items = group.items,
                         key   = { it.id } 
-                    ) { tx ->
-                        TransactionRow(
-                            item        = tx,
-                            incomeGreen = incomeGreen,
-                            expenseRed  = expenseRed,
-                            onClick     = { onNavigateToTransaction(tx.id) },
-                            // onImageClick = { path ->
-                            //     selectedImagePath = path
-                            //     showFullImageDialog = true
-                            // },
-                            modifier    = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-                        )
+                    ) { item ->
+                        when (item) {
+                            is TransactionItemUI -> {
+                                TransactionRow(
+                                    item        = item,
+                                    incomeGreen = incomeGreen,
+                                    expenseRed  = expenseRed,
+                                    onClick     = { onNavigateToTransaction(item.id) },
+                                    onLongClick = {
+                                        if (item.transactionType == "DEBT" || item.transactionType == "RECEIVABLE") {
+                                            selectedTransactionToAction = item
+                                        }
+                                    },
+                                    modifier    = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                                )
+                            }
+                            is TransferItemUI -> {
+                                TransferItemRow(
+                                    item = item,
+                                    primaryBlue = primaryBlue,
+                                    onClick = { onNavigateToTransfer(item.id) },
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                                )
+                            }
+                        }
                     }
 
                     item(key = "spacer_${group.dateLabel}_$index") {
@@ -500,35 +753,36 @@ private fun FilterTabRow(
     segmentedBg: Color,
     modifier: Modifier = Modifier
 ) {
-    Box(
+    val scrollState = rememberScrollState()
+    BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(50.dp))
             .background(segmentedBg)
             .padding(4.dp)
     ) {
-        Row(modifier = Modifier.fillMaxWidth()) {
-            FilterTab(
-                label       = "Semua",
-                isSelected  = selected == TransactionFilter.SEMUA,
-                onClick     = { onSelect(TransactionFilter.SEMUA) },
-                primaryBlue = primaryBlue,
-                modifier    = Modifier.weight(1f)
-            )
-            FilterTab(
-                label       = "Pengeluaran",
-                isSelected  = selected == TransactionFilter.PENGELUARAN,
-                onClick     = { onSelect(TransactionFilter.PENGELUARAN) },
-                primaryBlue = primaryBlue,
-                modifier    = Modifier.weight(1f)
-            )
-            FilterTab(
-                label       = "Pemasukan",
-                isSelected  = selected == TransactionFilter.PEMASUKAN,
-                onClick     = { onSelect(TransactionFilter.PEMASUKAN) },
-                primaryBlue = primaryBlue,
-                modifier    = Modifier.weight(1f)
-            )
+        val tabWidth = (maxWidth - 8.dp) / 3
+        Row(
+            modifier = Modifier
+                .horizontalScroll(scrollState),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            listOf(
+                TransactionFilter.SEMUA to "Semua",
+                TransactionFilter.PENGELUARAN to "Pengeluaran",
+                TransactionFilter.PEMASUKAN to "Pemasukan",
+                TransactionFilter.TRANSFER to "Transfer",
+                TransactionFilter.HUTANG to "Hutang",
+                TransactionFilter.PIUTANG to "Piutang"
+            ).forEach { (filter, label) ->
+                FilterTab(
+                    label       = label,
+                    isSelected  = selected == filter,
+                    onClick     = { onSelect(filter) },
+                    primaryBlue = primaryBlue,
+                    modifier    = Modifier.width(tabWidth)
+                )
+            }
         }
     }
 }
@@ -560,16 +814,21 @@ private fun FilterTab(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun TransactionRow(
     item: TransactionItemUI,
     incomeGreen: Color,
     expenseRed: Color,
     onClick: () -> Unit,
-    // onImageClick: (String) -> Unit,
+    onLongClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val amountColor = if (item.isExpense) expenseRed else incomeGreen
+    val amountColor = when (item.transactionType) {
+        "EXPENSE", "DEBT" -> expenseRed
+        "INCOME", "RECEIVABLE" -> incomeGreen
+        else -> if (item.isExpense) expenseRed else incomeGreen
+    }
     val iconColor = CategoryIconMapper.getColorByHex(item.colorHex)
     val bgColor = CategoryIconMapper.getBackgroundColorByHex(item.colorHex)
 
@@ -577,7 +836,10 @@ private fun TransactionRow(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(10.dp))
-            .clickable(onClick = onClick)
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick
+            )
             .padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -609,7 +871,7 @@ private fun TransactionRow(
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
-                text  = "${item.time} • ${item.category}",
+                text  = if (item.status == "LUNAS") "${item.time} • Lunas" else "${item.time} • ${item.category}",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -639,6 +901,67 @@ private fun TransactionRow(
             style = MaterialTheme.typography.bodyMedium.copy(
                 fontWeight = FontWeight.Bold,
                 color      = amountColor
+            )
+        )
+    }
+}
+
+
+
+@Composable
+fun TransferItemRow(
+    item: TransferItemUI,
+    primaryBlue: Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .clickable(onClick = onClick)
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .clip(CircleShape)
+                .background(primaryBlue.copy(alpha = 0.15f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector        = Icons.Default.CompareArrows,
+                contentDescription = null,
+                tint               = primaryBlue,
+                modifier           = Modifier.size(22.dp)
+            )
+        }
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text     = "${item.fromAccountName} → ${item.toAccountName}",
+                style    = MaterialTheme.typography.bodyMedium.copy(
+                    fontWeight = FontWeight.SemiBold
+                ),
+                color    = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text  = "${item.time}${if (!item.notes.isNullOrEmpty()) " • ${item.notes}" else ""}",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        Text(
+            text  = item.amount,
+            style = MaterialTheme.typography.bodyMedium.copy(
+                fontWeight = FontWeight.Bold,
+                color      = Color(0xFFF57C00)
             )
         )
     }

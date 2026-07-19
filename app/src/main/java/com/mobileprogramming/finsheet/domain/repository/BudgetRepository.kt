@@ -8,4 +8,8 @@ interface BudgetRepository {
     suspend fun insertBudget(budget: BudgetEntity)
     suspend fun updateBudget(budget: BudgetEntity)
     suspend fun deleteBudget(id: String)
+    
+    suspend fun insertBudgetMutation(mutation: com.mobileprogramming.finsheet.data.local.entity.BudgetMutationEntity)
+    fun getAllBudgetMutationsFlow(): Flow<List<com.mobileprogramming.finsheet.data.local.entity.BudgetMutationEntity>>
+    suspend fun getAllBudgetMutations(): List<com.mobileprogramming.finsheet.data.local.entity.BudgetMutationEntity>
 }

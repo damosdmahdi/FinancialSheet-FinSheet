@@ -13,16 +13,20 @@ class AddTransactionUseCase(
         transactionType: String,
         notes: String?,
         transactionDate: Long,
-        receiptLocalPath: String?
+        receiptLocalPath: String?,
+        accountId: String? = null,
+        isDitalangin: Boolean = false
     ) {
         val transaction = TransactionEntity(
             id = UUID.randomUUID().toString(),
             categoryId = categoryId,
             amount = amount,
+            accountId = accountId,
             transactionType = transactionType,
             notes = notes,
             transactionDate = transactionDate,
-            receiptLocalPath = receiptLocalPath
+            receiptLocalPath = receiptLocalPath,
+            isDitalangin = isDitalangin
         )
         transactionRepository.insertTransaction(transaction)
     }

@@ -15,5 +15,7 @@ interface TransactionRepository {
 
     suspend fun updateTransaction(transaction: TransactionEntity)
 
+    suspend fun updateTransactionStatus(id: String, status: String?, accountId: String?)
+
     suspend fun deleteTransaction(id: String)
 }

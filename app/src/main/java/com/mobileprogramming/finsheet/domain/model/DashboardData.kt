@@ -10,7 +10,9 @@ data class DashboardData(
     val totalExpenseToday: Double,
     val totalExpenseThisWeek: Double,
     val totalExpenseThisMonth: Double,
-    val monthlyBudgets: List<BudgetProgressModel>
+    val monthlyBudgets: List<BudgetProgressModel>,
+    val totalDebt: Double = 0.0,
+    val totalReceivable: Double = 0.0
 )
 
 data class CategoryExpenseModel(

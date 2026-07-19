@@ -26,9 +26,12 @@ class GetAllTransactionsUseCase(
                     iconName = category?.icon,
                     colorHex = category?.color,
                     amount = tx.amount,
-                    isExpense = tx.transactionType == "EXPENSE",
+                    isExpense = tx.transactionType == "EXPENSE" || tx.transactionType == "RECEIVABLE",
                     transactionDate = tx.transactionDate,
-                    receiptLocalPath = tx.receiptLocalPath
+                    receiptLocalPath = tx.receiptLocalPath,
+                    transactionType = tx.transactionType,
+                    status = tx.status,
+                    isDitalangin = tx.isDitalangin
                 )
             }.sortedByDescending { it.transactionDate }
         }

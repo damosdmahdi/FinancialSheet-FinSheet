@@ -1,0 +1,8 @@
+- [ ] Add `isDitalangin` column to `TransactionEntity.kt`
+- [ ] Add `isDitalangin` field to `TransactionItemModel.kt`, `TransactionItemUI`, Use Cases, and update Dao/Repository signatures
+- [ ] Update `GetDashboardDataUseCase.kt` balance calculation to exclude ditalangin cash inflow
+- [ ] Modify `AddEditTransactionViewModel.kt` to handle `isDitalangin` state and save logic
+- [ ] Update `AddTransactionScreen.kt` to render the Switch and handle Edit constraint (hide segmented toggle)
+- [ ] Update `HistoryViewModel.kt` with `accounts` Flow, new `markAsLunas` logic (with account selection), and `undoLunas`
+- [ ] Update `HistoryScreen.kt` to show correct confirmation dialogs (simple lunas, choice lunas, and undo lunas)
+- [ ] Verify using Gradle compilation check

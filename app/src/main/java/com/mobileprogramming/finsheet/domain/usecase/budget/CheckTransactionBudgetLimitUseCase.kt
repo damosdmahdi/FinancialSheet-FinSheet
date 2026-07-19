@@ -2,6 +2,7 @@ package com.mobileprogramming.finsheet.domain.usecase.budget
 
 import com.mobileprogramming.finsheet.domain.repository.BudgetRepository
 import com.mobileprogramming.finsheet.domain.repository.TransactionRepository
+import com.mobileprogramming.finsheet.domain.repository.CategoryRepository
 import kotlinx.coroutines.flow.first
 import java.util.Calendar
 
@@ -21,7 +22,8 @@ data class BudgetCheckResult(
 
 class CheckTransactionBudgetLimitUseCase(
     private val budgetRepository: BudgetRepository,
-    private val transactionRepository: TransactionRepository
+    private val transactionRepository: TransactionRepository,
+    private val categoryRepository: CategoryRepository
 ) {
     suspend operator fun invoke(
         categoryId: String?,
@@ -41,6 +43,9 @@ class CheckTransactionBudgetLimitUseCase(
             val categoryBudget = activeBudgets.find { it.categoryId == categoryId }
             
             if (categoryBudget != null) {
+                val categoryEntity = categoryRepository.getCategoryById(categoryId)
+                val categoryName = categoryEntity?.categoryName ?: categoryBudget.budgetName.substringAfter("Batas Anggaran ").substringAfter("Budget ")
+
                 val targetDay = targetCalendar.get(Calendar.DAY_OF_YEAR)
                 val targetWeek = targetCalendar.get(Calendar.WEEK_OF_YEAR)
                 
@@ -59,7 +64,7 @@ class CheckTransactionBudgetLimitUseCase(
                     results.add(
                         BudgetCheckResult(
                             type = BudgetExceedType.DAILY,
-                            categoryName = categoryBudget.budgetName.substringAfter("Batas Anggaran ").substringAfter("Budget "),
+                            categoryName = categoryName,
                             budgetLimit = dailyLimit,
                             spentAmount = dailySpentWithNew
                         )
@@ -77,7 +82,7 @@ class CheckTransactionBudgetLimitUseCase(
                     results.add(
                         BudgetCheckResult(
                             type = BudgetExceedType.WEEKLY,
-                            categoryName = categoryBudget.budgetName.substringAfter("Batas Anggaran ").substringAfter("Budget "),
+                            categoryName = categoryName,
                             budgetLimit = weeklyLimit,
                             spentAmount = weeklySpentWithNew
                         )
@@ -95,7 +100,7 @@ class CheckTransactionBudgetLimitUseCase(
                     results.add(
                         BudgetCheckResult(
                             type = BudgetExceedType.MONTHLY,
-                            categoryName = categoryBudget.budgetName.substringAfter("Batas Anggaran ").substringAfter("Budget "),
+                            categoryName = categoryName,
                             budgetLimit = monthlyLimit,
                             spentAmount = monthlySpentWithNew
                         )

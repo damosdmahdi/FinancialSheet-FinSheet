@@ -25,7 +25,26 @@ object CategoryIconMapper {
             "Laptop" -> Icons.Outlined.Laptop
             "CardGiftcard" -> Icons.Outlined.CardGiftcard
             "Storefront" -> Icons.Outlined.Storefront
+            "WaterDrop" -> Icons.Outlined.WaterDrop
+            "Bolt" -> Icons.Outlined.Bolt
+            "Build" -> Icons.Outlined.Build
+            "LocalGasStation" -> Icons.Outlined.LocalGasStation
+            "Shield" -> Icons.Outlined.Shield
+            "Bed" -> Icons.Outlined.Bed
+            "Wifi" -> Icons.Outlined.Wifi
+            "DirectionsBus" -> Icons.Outlined.DirectionsBus
             "Add" -> Icons.Filled.Add
+            "CreditCard" -> Icons.Outlined.CreditCard
+            "Payments" -> Icons.Outlined.Payments
+            "MonetizationOn" -> Icons.Outlined.MonetizationOn
+            "LocalAtm" -> Icons.Outlined.LocalAtm
+            "AccountBalance" -> Icons.Outlined.AccountBalance
+            "TrendingUp" -> Icons.Outlined.TrendingUp
+            "PriceChange" -> Icons.Outlined.PriceChange
+            "AttachMoney" -> Icons.Outlined.AttachMoney
+            "Paid" -> Icons.Outlined.Paid
+            "DEBT" -> Icons.Outlined.TrendingDown
+            "RECEIVABLE" -> Icons.Outlined.TrendingUp
             else -> Icons.Outlined.MoreHoriz
         }
     }
@@ -44,5 +63,25 @@ object CategoryIconMapper {
         val solidColor = getColorByHex(hex)
         // Simple trick: make it highly transparent for background
         return solidColor.copy(alpha = 0.15f)
+    }
+
+    private val colorOrder = listOf(
+        "1A3DA8", // Navy Blue
+        "2DC653", // Hijau
+        "FF8C00", // Oranye
+        "E53935", // Merah
+        "8E24AA", // Ungu
+        "E91E8C", // Hot Pink
+        "00ACC1"  // Teal
+    )
+
+    fun sortCategoriesByColor(categories: List<com.mobileprogramming.finsheet.data.local.entity.CategoryEntity>): List<com.mobileprogramming.finsheet.data.local.entity.CategoryEntity> {
+        return categories.sortedWith(
+            compareBy<com.mobileprogramming.finsheet.data.local.entity.CategoryEntity> { category ->
+                val hex = category.color?.uppercase()?.removePrefix("#") ?: ""
+                val index = colorOrder.indexOf(hex)
+                if (index != -1) index else colorOrder.size
+            }.thenBy { it.categoryName }
+        )
     }
 }

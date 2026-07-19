@@ -12,6 +12,12 @@ import com.mobileprogramming.finsheet.domain.usecase.GetDashboardDataUseCase
 import com.mobileprogramming.finsheet.domain.usecase.transaction.GetAllTransactionsUseCase
 import com.mobileprogramming.finsheet.data.repository.CurrencyRepositoryImpl
 import com.mobileprogramming.finsheet.domain.repository.CurrencyRepository
+import com.mobileprogramming.finsheet.domain.repository.AccountRepository
+import com.mobileprogramming.finsheet.domain.repository.TransferRepository
+import com.mobileprogramming.finsheet.data.repository.AccountRepositoryImpl
+import com.mobileprogramming.finsheet.data.repository.TransferRepositoryImpl
+import com.mobileprogramming.finsheet.domain.repository.ReminderRepository
+import com.mobileprogramming.finsheet.data.repository.ReminderRepositoryImpl
 import com.mobileprogramming.finsheet.data.local.preferences.CurrencyPreferenceManager
 import com.mobileprogramming.finsheet.data.remote.FrankfurtApi
 import retrofit2.Retrofit
@@ -68,7 +74,22 @@ object Injection {
 
     fun provideBudgetRepository(context: Context): BudgetRepository {
         val db = provideDatabase(context)
-        return BudgetRepositoryImpl(db.budgetDao())
+        return BudgetRepositoryImpl(db.budgetDao(), db.budgetMutationDao())
+    }
+
+    fun provideAccountRepository(context: Context): AccountRepository {
+        val db = provideDatabase(context)
+        return AccountRepositoryImpl(db.accountDao())
+    }
+
+    fun provideTransferRepository(context: Context): TransferRepository {
+        val db = provideDatabase(context)
+        return TransferRepositoryImpl(db.transferDao(), db.accountDao())
+    }
+
+    fun provideReminderRepository(context: Context): ReminderRepository {
+        val db = provideDatabase(context)
+        return ReminderRepositoryImpl(db.reminderDao())
     }
 
     fun provideSharedPreferences(context: Context): SharedPreferences {
@@ -106,7 +127,8 @@ object Injection {
         val repo = provideCurrencyRepository(context)
         return com.mobileprogramming.finsheet.ui.features.dashboard.DashboardViewModelFactory(
             getDashboardDataUseCase = provideGetDashboardDataUseCase(context),
-            getActiveCurrencyFlowUseCase = com.mobileprogramming.finsheet.domain.usecase.currency.GetActiveCurrencyFlowUseCase(repo)
+            getActiveCurrencyFlowUseCase = com.mobileprogramming.finsheet.domain.usecase.currency.GetActiveCurrencyFlowUseCase(repo),
+            accountRepository = provideAccountRepository(context)
         )
     }
 
@@ -122,34 +144,35 @@ object Injection {
         return com.mobileprogramming.finsheet.ui.features.history.HistoryViewModelFactory(
             getAllTransactionsUseCase = provideGetAllTransactionsUseCase(context),
             syncTransactionsUseCase = provideSyncTransactionsUseCase(context),
-            getActiveCurrencyFlowUseCase = com.mobileprogramming.finsheet.domain.usecase.currency.GetActiveCurrencyFlowUseCase(repo)
+            getActiveCurrencyFlowUseCase = com.mobileprogramming.finsheet.domain.usecase.currency.GetActiveCurrencyFlowUseCase(repo),
+            transferRepository = provideTransferRepository(context),
+            accountRepository = provideAccountRepository(context),
+            transactionRepository = provideTransactionRepository(context)
         )
     }
 
     fun provideBudgetViewModelFactory(context: Context): BudgetViewModelFactory {
-        val repo = provideCurrencyRepository(context)
         return BudgetViewModelFactory(
             provideGetBudgetScreenDataUseCase(context),
             provideSaveCategoryBudgetsUseCase(context),
             provideDeleteBudgetUseCase(context),
             provideSharedPreferences(context),
-            com.mobileprogramming.finsheet.domain.usecase.currency.GetActiveCurrencyFlowUseCase(repo)
+            provideBudgetRepository(context)
         )
     }
 
     fun provideAddBudgetViewModelFactory(context: Context): AddBudgetViewModelFactory {
-        val repo = provideCurrencyRepository(context)
         return AddBudgetViewModelFactory(
             provideCategoryRepository(context),
-            provideSaveCategoryBudgetsUseCase(context),
-            com.mobileprogramming.finsheet.domain.usecase.currency.GetActiveCurrencyFlowUseCase(repo)
+            provideSaveCategoryBudgetsUseCase(context)
         )
     }
 
     fun provideCheckTransactionBudgetLimitUseCase(context: Context): com.mobileprogramming.finsheet.domain.usecase.budget.CheckTransactionBudgetLimitUseCase {
         return com.mobileprogramming.finsheet.domain.usecase.budget.CheckTransactionBudgetLimitUseCase(
             provideBudgetRepository(context),
-            provideTransactionRepository(context)
+            provideTransactionRepository(context),
+            provideCategoryRepository(context)
         )
     }
 
@@ -162,6 +185,8 @@ object Injection {
         )
         return com.mobileprogramming.finsheet.domain.usecase.transaction.SyncTransactionsUseCase(
             transactionDao = db.transactionDao(),
+            categoryDao = db.categoryDao(),
+            accountDao = db.accountDao(),
             sheetsRepository = sheetsRepo,
             authClient = authClient
         )
@@ -179,10 +204,14 @@ object Injection {
             getTransactionByIdUseCase = com.mobileprogramming.finsheet.domain.usecase.GetTransactionByIdUseCase(transactionRepo),
             getCategoriesByTypeUseCase = com.mobileprogramming.finsheet.domain.usecase.GetCategoriesByTypeUseCase(categoryRepo),
             addCategoryUseCase = com.mobileprogramming.finsheet.domain.usecase.AddCategoryUseCase(categoryRepo),
+            categoryRepository = categoryRepo,
             checkTransactionBudgetLimitUseCase = provideCheckTransactionBudgetLimitUseCase(context),
             sharedPreferences = provideSharedPreferences(context),
             context = context.applicationContext,
-            getActiveCurrencyFlowUseCase = com.mobileprogramming.finsheet.domain.usecase.currency.GetActiveCurrencyFlowUseCase(currencyRepo)
+            getActiveCurrencyFlowUseCase = com.mobileprogramming.finsheet.domain.usecase.currency.GetActiveCurrencyFlowUseCase(currencyRepo),
+            accountRepository = provideAccountRepository(context),
+            budgetRepository = provideBudgetRepository(context),
+            transactionRepository = transactionRepo
         )
     }
 
@@ -193,7 +222,21 @@ object Injection {
             getActiveCurrencyUseCase = GetActiveCurrencyUseCase(repo),
             getAllCurrenciesUseCase = GetAllCurrenciesUseCase(repo),
             setPreferredCurrencyUseCase = SetPreferredCurrencyUseCase(repo),
-            syncCurrenciesUseCase = SyncCurrenciesUseCase(repo)
+            syncCurrenciesUseCase = SyncCurrenciesUseCase(repo),
+            reminderRepository = provideReminderRepository(context)
+        )
+    }
+
+    fun provideAccountViewModelFactory(context: Context): com.mobileprogramming.finsheet.ui.features.account.AccountViewModelFactory {
+        return com.mobileprogramming.finsheet.ui.features.account.AccountViewModelFactory(
+            provideAccountRepository(context)
+        )
+    }
+
+    fun provideTransferViewModelFactory(context: Context): com.mobileprogramming.finsheet.ui.features.transfer.TransferViewModelFactory {
+        return com.mobileprogramming.finsheet.ui.features.transfer.TransferViewModelFactory(
+            provideAccountRepository(context),
+            provideTransferRepository(context)
         )
     }
 

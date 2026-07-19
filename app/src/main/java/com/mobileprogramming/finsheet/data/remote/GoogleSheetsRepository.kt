@@ -27,6 +27,69 @@ class GoogleSheetsRepository(private val context: Context) {
         prefs.edit().remove("spreadsheet_id").apply()
     }
 
+    fun getManualAccessToken(): String? {
+        return prefs.getString("manual_access_token", null)
+    }
+
+    fun saveManualAccessToken(token: String) {
+        prefs.edit().putString("manual_access_token", token).apply()
+    }
+
+    fun clearManualAccessToken() {
+        prefs.edit().remove("manual_access_token").apply()
+    }
+
+    fun getAppsScriptUrl(): String? {
+        return prefs.getString("apps_script_url", null)
+    }
+
+    fun saveAppsScriptUrl(url: String) {
+        prefs.edit().putString("apps_script_url", url).apply()
+    }
+
+    fun clearAppsScriptUrl() {
+        prefs.edit().remove("apps_script_url").apply()
+    }
+
+    suspend fun appendTransactionsViaAppsScript(
+        url: String,
+        values: List<List<Any>>
+    ): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val jsonBody = JSONObject().apply {
+                val arrayOuter = org.json.JSONArray()
+                values.forEach { row ->
+                    val arrayInner = org.json.JSONArray()
+                    row.forEach { cell ->
+                        arrayInner.put(cell)
+                    }
+                    arrayOuter.put(arrayInner)
+                }
+                put("values", arrayOuter)
+            }
+
+            val requestBody = jsonBody.toString().toRequestBody("application/json".toMediaType())
+            val request = Request.Builder()
+                .url(url)
+                .post(requestBody)
+                .build()
+
+            val response = client.newCall(request).execute()
+            val isSuccessful = response.isSuccessful
+            val bodyString = response.body?.string()
+            response.close()
+            
+            if (isSuccessful && bodyString != null) {
+                val json = JSONObject(bodyString)
+                return@withContext json.optString("status") == "success"
+            }
+            return@withContext isSuccessful
+        } catch (e: Exception) {
+            Log.e("GoogleSheetsRepo", "Error appending via Apps Script", e)
+            return@withContext false
+        }
+    }
+
     suspend fun findSpreadsheetByName(accessToken: String): String? = withContext(Dispatchers.IO) {
         try {
             val query = "name='FinSheet Transactions Backup' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false"
@@ -180,7 +243,7 @@ class GoogleSheetsRepository(private val context: Context) {
     suspend fun appendTransactions(
         accessToken: String,
         spreadsheetId: String,
-        values: List<List<String>>
+        values: List<List<Any>>
     ): Boolean = withContext(Dispatchers.IO) {
         try {
             val jsonBody = JSONObject().apply {

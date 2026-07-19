@@ -12,14 +12,16 @@ class AddCategoryUseCase(
         type: String, // "INCOME" or "EXPENSE"
         icon: String, // String representation of the icon
         color: String // Hex string representing the color
-    ) {
+    ): String {
+        val newId = UUID.randomUUID().toString()
         val category = CategoryEntity(
-            id = UUID.randomUUID().toString(),
+            id = newId,
             categoryName = name,
             type = type,
             icon = icon,
             color = color
         )
         categoryRepository.insertCategory(category)
+        return newId
     }
 }

@@ -15,7 +15,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -104,13 +103,29 @@ fun AddBudgetScreen(
         )
     ),
     onNavigateBack: () -> Unit,
-    onNavigateToAddCategory: () -> Unit
+    onNavigateToAddCategory: () -> Unit,
+    onNavigateToEditCategory: (String) -> Unit,
+    savedStateHandle: androidx.lifecycle.SavedStateHandle? = null
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val symbol = uiState.activeCurrency?.symbol ?: "Rp"
     var selectedCategory by remember { mutableStateOf<CategoryItem?>(null) }
     var amountState by remember { mutableStateOf(TextFieldValue("")) }
     var showAllCategories by remember { mutableStateOf(false) }
+    var categoryToDelete by remember { mutableStateOf<CategoryItem?>(null) }
+
+    val context = LocalContext.current
+    val sharedPreferences = remember {
+        context.getSharedPreferences("finsheet_prefs", android.content.Context.MODE_PRIVATE)
+    }
+    val selectedCurrency = remember {
+        sharedPreferences.getString("main_currency", "IDR") ?: "IDR"
+    }
+
+    val newCategoryIdState by if (savedStateHandle != null) {
+        savedStateHandle.getStateFlow<String?>("new_category_id", null).collectAsStateWithLifecycle()
+    } else {
+        remember { mutableStateOf<String?>(null) }
+    }
 
     val dbCategories = remember(uiState.categories) {
         uiState.categories
@@ -131,9 +146,58 @@ fun AddBudgetScreen(
             }
     }
 
-    val budgetGridCategories = remember(dbCategories) {
-        val list = dbCategories.take(7).toMutableList()
-        list.add(
+    LaunchedEffect(newCategoryIdState, dbCategories) {
+        val newId = newCategoryIdState
+        if (newId != null && dbCategories.isNotEmpty()) {
+            val matchingCategory = dbCategories.find { it.id == newId }
+            if (matchingCategory != null) {
+                selectedCategory = matchingCategory
+                savedStateHandle?.set("new_category_id", null)
+            }
+        }
+    }
+
+    if (categoryToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { categoryToDelete = null },
+            title = { Text("Hapus Kategori") },
+            text = { Text("Apakah Anda yakin ingin menghapus kategori \"${categoryToDelete?.name}\"? Semua alokasi anggaran dan riwayat transaksi untuk kategori ini akan terpengaruh.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        categoryToDelete?.let { viewModel.deleteCategory(it.id) }
+                        categoryToDelete = null
+                    }
+                ) {
+                    Text("Hapus", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { categoryToDelete = null }) {
+                    Text("Batal")
+                }
+            }
+        )
+    }
+
+    val budgetGridCategories = remember(dbCategories, selectedCategory) {
+        val list = dbCategories.toMutableList()
+        val selectedInDb = selectedCategory?.let { sel -> list.find { it.id == sel.id } }
+        val displayedList = if (selectedInDb != null) {
+            val first7 = list.take(7).toMutableList()
+            if (!first7.any { it.id == selectedInDb.id }) {
+                if (first7.size >= 7) {
+                    first7[6] = selectedInDb
+                } else {
+                    first7.add(selectedInDb)
+                }
+            }
+            first7
+        } else {
+            list.take(7)
+        }.toMutableList()
+
+        displayedList.add(
             CategoryItem(
                 id = "virtual-add-category",
                 name = "Tambah",
@@ -144,7 +208,7 @@ fun AddBudgetScreen(
                 bgColorDark = Color(0xFFF0F0F8)
             )
         )
-        list
+        displayedList
     }
 
     if (showAllCategories) {
@@ -152,6 +216,8 @@ fun AddBudgetScreen(
             categories = dbCategories,
             selectedCategory = selectedCategory,
             onCategorySelected = { selectedCategory = it },
+            onDeleteCategory = { categoryToDelete = it },
+            onEditCategory = { category -> onNavigateToEditCategory(category.id) },
             onConfirm = { showAllCategories = false },
             onBack = { showAllCategories = false }
         )
@@ -196,7 +262,7 @@ fun AddBudgetScreen(
                 Button(
                     onClick = {
                         val category = selectedCategory
-                        val amount = amountState.text.toDoubleOrNull()
+                        val amount = amountState.text.toLongOrNull()
                         if (category != null && amount != null) {
                             viewModel.saveBudget(
                                 categoryId = category.id,
@@ -262,7 +328,7 @@ fun AddBudgetScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                if (dbCategories.isEmpty()) {
+                if (uiState.isLoading) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -270,6 +336,31 @@ fun AddBudgetScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         CircularProgressIndicator()
+                    }
+                } else if (dbCategories.isEmpty()) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            text = "Kategori tidak tersedia. Silakan tambahkan kategori terlebih dahulu.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            modifier = Modifier.padding(horizontal = 16.dp)
+                        )
+                        Button(
+                            onClick = onNavigateToAddCategory,
+                            shape = RoundedCornerShape(8.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                        ) {
+                            Icon(imageVector = Icons.Default.Add, contentDescription = null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Tambah Kategori")
+                        }
                     }
                 } else {
                     val chunkedCategories = budgetGridCategories.chunked(4)
@@ -324,11 +415,9 @@ fun AddBudgetScreen(
                     OutlinedTextField(
                         value = amountState,
                         onValueChange = { newValue ->
-                            val text = newValue.text
-                            if (text.isEmpty() || text.matches(Regex("^\\d*\\.?\\d{0,2}\$"))) {
-                                if (text.length <= 15) {
-                                    amountState = newValue
-                                }
+                            val filtered = newValue.text.filter { it.isDigit() }
+                            if (filtered.length <= 15) {
+                                amountState = newValue.copy(text = filtered)
                             }
                         },
                         modifier = Modifier.fillMaxWidth(),
@@ -338,7 +427,7 @@ fun AddBudgetScreen(
                         ),
                         leadingIcon = {
                             Text(
-                                text = symbol,
+                                text = com.mobileprogramming.finsheet.core.utils.CurrencyFormatter.getSymbol(selectedCurrency),
                                 style = MaterialTheme.typography.titleLarge.copy(
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -386,53 +475,93 @@ fun CategoryCard(
     category: CategoryItem,
     isSelected: Boolean,
     onClick: () -> Unit,
+    onEdit: (() -> Unit)? = null,
+    onDelete: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val isDark = isSystemInDarkTheme()
     val iconColor = if (isDark) category.iconColorDark else category.iconColorLight
     val bgColor = if (isDark) category.bgColorDark else category.bgColorLight
 
-    OutlinedCard(
-        onClick = onClick,
-        border = BorderStroke(
-            width = if (isSelected) 2.dp else 1.dp,
-            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-        ),
-        colors = CardDefaults.outlinedCardColors(
-            containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surface
-        ),
-        shape = RoundedCornerShape(12.dp),
-        modifier = modifier.aspectRatio(0.85f)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 4.dp, vertical = 8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+    Box(modifier = modifier.aspectRatio(0.85f)) {
+        OutlinedCard(
+            onClick = onClick,
+            border = BorderStroke(
+                width = if (isSelected) 2.dp else 1.dp,
+                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+            ),
+            colors = CardDefaults.outlinedCardColors(
+                containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surface
+            ),
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier.fillMaxSize()
         ) {
-            Box(
+            Column(
                 modifier = Modifier
-                    .size(44.dp)
-                    .clip(CircleShape)
-                    .background(bgColor),
-                contentAlignment = Alignment.Center
+                    .fillMaxSize()
+                    .padding(horizontal = 4.dp, vertical = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
             ) {
-                Icon(
-                    imageVector = category.icon,
-                    contentDescription = category.name,
-                    tint = iconColor,
-                    modifier = Modifier.size(24.dp)
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(bgColor),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = category.icon,
+                        contentDescription = category.name,
+                        tint = iconColor,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = category.name,
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
                 )
             }
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = category.name,
-                style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
-            )
+        }
+
+        if (category.id != "virtual-add-category" && category.name != "Lainnya") {
+            if (onEdit != null) {
+                IconButton(
+                    onClick = onEdit,
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .size(28.dp)
+                        .padding(4.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Edit,
+                        contentDescription = "Edit Kategori",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(14.dp)
+                    )
+                }
+            }
+
+            if (onDelete != null) {
+                IconButton(
+                    onClick = onDelete,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .size(28.dp)
+                        .padding(4.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Delete,
+                        contentDescription = "Hapus Kategori",
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(14.dp)
+                    )
+                }
+            }
         }
     }
 }
@@ -443,6 +572,8 @@ fun CategorySelectionScreen(
     categories: List<CategoryItem>,
     selectedCategory: CategoryItem?,
     onCategorySelected: (CategoryItem) -> Unit,
+    onDeleteCategory: (CategoryItem) -> Unit,
+    onEditCategory: (CategoryItem) -> Unit,
     onConfirm: () -> Unit,
     onBack: () -> Unit
 ) {
@@ -555,25 +686,41 @@ fun CategorySelectionScreen(
             )
 
             val filteredCategories = categories.filter { it.name.contains(searchQuery, ignoreCase = true) }
-            val chunkedCategories = filteredCategories.chunked(4)
-            
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                chunkedCategories.forEach { rowItems ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        rowItems.forEach { category ->
-                            CategoryCard(
-                                category = category,
-                                isSelected = selectedCategory?.id == category.id,
-                                onClick = { onCategorySelected(category) },
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-                        if (rowItems.size < 4) {
-                            repeat(4 - rowItems.size) {
-                                Spacer(modifier = Modifier.weight(1f))
+            if (filteredCategories.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "Kategori tidak ditemukan",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            } else {
+                val chunkedCategories = filteredCategories.chunked(4)
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    chunkedCategories.forEach { rowItems ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            rowItems.forEach { category ->
+                                CategoryCard(
+                                    category = category,
+                                    isSelected = selectedCategory?.id == category.id,
+                                    onClick = { onCategorySelected(category) },
+                                    onEdit = { onEditCategory(category) },
+                                    onDelete = { onDeleteCategory(category) },
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                            if (rowItems.size < 4) {
+                                repeat(4 - rowItems.size) {
+                                    Spacer(modifier = Modifier.weight(1f))
+                                }
                             }
                         }
                     }

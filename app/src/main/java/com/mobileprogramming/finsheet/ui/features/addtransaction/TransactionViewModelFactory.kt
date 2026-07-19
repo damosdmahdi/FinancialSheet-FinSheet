@@ -12,6 +12,13 @@ import android.content.Context
 import android.content.SharedPreferences
 import com.mobileprogramming.finsheet.domain.usecase.budget.CheckTransactionBudgetLimitUseCase
 
+import com.mobileprogramming.finsheet.domain.repository.CategoryRepository
+
+import com.mobileprogramming.finsheet.domain.repository.AccountRepository
+
+import com.mobileprogramming.finsheet.domain.repository.BudgetRepository
+import com.mobileprogramming.finsheet.domain.repository.TransactionRepository
+
 class TransactionViewModelFactory(
     private val addTransactionUseCase: AddTransactionUseCase,
     private val updateTransactionUseCase: UpdateTransactionUseCase,
@@ -19,10 +26,14 @@ class TransactionViewModelFactory(
     private val getTransactionByIdUseCase: GetTransactionByIdUseCase,
     private val getCategoriesByTypeUseCase: GetCategoriesByTypeUseCase,
     private val addCategoryUseCase: AddCategoryUseCase,
+    private val categoryRepository: CategoryRepository,
     private val checkTransactionBudgetLimitUseCase: CheckTransactionBudgetLimitUseCase,
     private val sharedPreferences: SharedPreferences,
     private val context: Context,
-    private val getActiveCurrencyFlowUseCase: GetActiveCurrencyFlowUseCase
+    private val getActiveCurrencyFlowUseCase: GetActiveCurrencyFlowUseCase,
+    private val accountRepository: AccountRepository,
+    private val budgetRepository: BudgetRepository,
+    private val transactionRepository: TransactionRepository
 ) : ViewModelProvider.Factory {
 
     @Suppress("UNCHECKED_CAST")
@@ -30,19 +41,23 @@ class TransactionViewModelFactory(
         return when {
             modelClass.isAssignableFrom(AddEditTransactionViewModel::class.java) -> {
                 AddEditTransactionViewModel(
-                    addTransactionUseCase,
-                    updateTransactionUseCase,
-                    deleteTransactionUseCase,
-                    getTransactionByIdUseCase,
-                    getCategoriesByTypeUseCase,
-                    getActiveCurrencyFlowUseCase,
-                    checkTransactionBudgetLimitUseCase,
-                    sharedPreferences,
-                    context
+                    addTransactionUseCase = addTransactionUseCase,
+                    updateTransactionUseCase = updateTransactionUseCase,
+                    deleteTransactionUseCase = deleteTransactionUseCase,
+                    getTransactionByIdUseCase = getTransactionByIdUseCase,
+                    getCategoriesByTypeUseCase = getCategoriesByTypeUseCase,
+                    getActiveCurrencyFlowUseCase = getActiveCurrencyFlowUseCase,
+                    checkTransactionBudgetLimitUseCase = checkTransactionBudgetLimitUseCase,
+                    categoryRepository = categoryRepository,
+                    accountRepository = accountRepository,
+                    sharedPreferences = sharedPreferences,
+                    context = context,
+                    budgetRepository = budgetRepository,
+                    transactionRepository = transactionRepository
                 ) as T
             }
             modelClass.isAssignableFrom(AddCategoryViewModel::class.java) -> {
-                AddCategoryViewModel(addCategoryUseCase) as T
+                AddCategoryViewModel(addCategoryUseCase, categoryRepository) as T
             }
             else -> throw IllegalArgumentException("Unknown ViewModel class")
         }

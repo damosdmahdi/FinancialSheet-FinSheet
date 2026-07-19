@@ -10,7 +10,7 @@ sealed class Screen {
     @Serializable
     object SelectCategory : Screen()
     @Serializable
-    data class AddCategory(val categoryId: String? = null) : Screen()
+    data class AddCategory(val categoryId: String? = null, val type: String? = null) : Screen()
     @Serializable
     object History : Screen()
     @Serializable
@@ -23,4 +23,12 @@ sealed class Screen {
     object AddBudget : Screen()
     @Serializable
     object Login : Screen()
+    @Serializable
+    object AccountList : Screen()
+    @Serializable
+    data class AddEditAccount(val accountId: String? = null) : Screen()
+    @Serializable
+    data class AddTransfer(val transferId: String? = null) : Screen()
+    @Serializable
+    data class AddEditReminder(val reminderId: String? = null) : Screen()
 }

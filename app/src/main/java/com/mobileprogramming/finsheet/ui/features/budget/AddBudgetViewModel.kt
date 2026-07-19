@@ -4,26 +4,23 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.mobileprogramming.finsheet.data.local.entity.CategoryEntity
-import com.mobileprogramming.finsheet.data.local.entity.CurrencyEntity
 import com.mobileprogramming.finsheet.domain.repository.CategoryRepository
 import com.mobileprogramming.finsheet.domain.usecase.budget.SaveCategoryBudgetsUseCase
-import com.mobileprogramming.finsheet.domain.usecase.currency.GetActiveCurrencyFlowUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.mobileprogramming.finsheet.ui.features.addtransaction.CategoryIconMapper
 
 data class AddBudgetUiState(
     val categories: List<CategoryEntity> = emptyList(),
-    val isLoading: Boolean = false,
-    val activeCurrency: CurrencyEntity? = null
+    val isLoading: Boolean = false
 )
 
 class AddBudgetViewModel(
     private val categoryRepository: CategoryRepository,
-    private val saveCategoryBudgetsUseCase: SaveCategoryBudgetsUseCase,
-    private val getActiveCurrencyFlowUseCase: GetActiveCurrencyFlowUseCase
+    private val saveCategoryBudgetsUseCase: SaveCategoryBudgetsUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AddBudgetUiState())
@@ -31,43 +28,40 @@ class AddBudgetViewModel(
 
     init {
         loadExpenseCategories()
-        loadActiveCurrency()
-    }
-
-    private fun loadActiveCurrency() {
-        viewModelScope.launch {
-            getActiveCurrencyFlowUseCase().collect { currency ->
-                _uiState.update { it.copy(activeCurrency = currency) }
-            }
-        }
     }
 
     private fun loadExpenseCategories() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             categoryRepository.getActiveCategoriesByType("EXPENSE").collect { expenseCategories ->
-                _uiState.update { it.copy(categories = expenseCategories, isLoading = false) }
+                val sorted = CategoryIconMapper.sortCategoriesByColor(expenseCategories)
+                _uiState.update { it.copy(categories = sorted, isLoading = false) }
             }
         }
     }
 
-    fun saveBudget(categoryId: String, budgetName: String, amountLimit: Double, onComplete: () -> Unit) {
+    fun saveBudget(categoryId: String, budgetName: String, amountLimit: Long, onComplete: () -> Unit) {
         viewModelScope.launch {
-            saveCategoryBudgetsUseCase(categoryId, budgetName, amountLimit)
+            saveCategoryBudgetsUseCase(categoryId, budgetName, amountLimit.toDouble())
             onComplete()
+        }
+    }
+
+    fun deleteCategory(categoryId: String) {
+        viewModelScope.launch {
+            categoryRepository.deleteCategory(categoryId)
         }
     }
 }
 
 class AddBudgetViewModelFactory(
     private val categoryRepository: CategoryRepository,
-    private val saveCategoryBudgetsUseCase: SaveCategoryBudgetsUseCase,
-    private val getActiveCurrencyFlowUseCase: GetActiveCurrencyFlowUseCase
+    private val saveCategoryBudgetsUseCase: SaveCategoryBudgetsUseCase
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(AddBudgetViewModel::class.java)) {
-            return AddBudgetViewModel(categoryRepository, saveCategoryBudgetsUseCase, getActiveCurrencyFlowUseCase) as T
+            return AddBudgetViewModel(categoryRepository, saveCategoryBudgetsUseCase) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

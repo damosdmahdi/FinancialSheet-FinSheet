@@ -15,13 +15,19 @@ class GetDashboardDataUseCase(
     private val categoryRepository: CategoryRepository,
     private val budgetRepository: BudgetRepository
 ) {
-    operator fun invoke(): Flow<DashboardData> {
+    operator fun invoke(accountId: String? = null): Flow<DashboardData> {
         return combine(
             transactionRepository.getAllActiveTransactions(),
             categoryRepository.getAllActiveCategories(),
             budgetRepository.getAllActiveBudgets()
         ) { transactions, categories, budgets ->
             
+            val filteredTransactions = if (accountId != null) {
+                transactions.filter { it.accountId == accountId }
+            } else {
+                transactions
+            }
+
             // 1. Kalkulasi Saldo
             var totalIncome = 0.0
             var totalExpense = 0.0
@@ -42,7 +48,12 @@ class GetDashboardDataUseCase(
             var totalExpenseThisWeek = 0.0
             var totalExpenseThisMonth = 0.0
 
-            for (tx in transactions) {
+            var totalDebt = 0.0
+            var totalReceivable = 0.0
+            var activeDebt = 0.0
+            var activeReceivable = 0.0
+
+            for (tx in filteredTransactions) {
                 if (tx.transactionType == "INCOME") {
                     totalIncome += tx.amount
                     val txCalendar = Calendar.getInstance().apply { timeInMillis = tx.transactionDate }
@@ -77,10 +88,25 @@ class GetDashboardDataUseCase(
                             expensesByCategoryThisMonth[id] = (expensesByCategoryThisMonth[id] ?: 0.0) + tx.amount
                         }
                     }
+                } else if (tx.transactionType == "DEBT") {
+                    if (!tx.isDitalangin) {
+                        totalIncome += tx.amount
+                    }
+                    totalDebt += tx.amount
+                    if (tx.status != "LUNAS") {
+                        activeDebt += tx.amount
+                    }
+                } else if (tx.transactionType == "RECEIVABLE") {
+                    totalExpense += tx.amount
+                    totalReceivable += tx.amount
+                    if (tx.status != "LUNAS") {
+                        activeReceivable += tx.amount
+                    }
                 }
             }
 
-            val totalBalance = totalIncome - totalExpense
+            val totalCash = totalIncome - totalExpense
+            val totalBalance = totalCash + activeReceivable - activeDebt
 
             // 2. Map Pengeluaran Kategori (Hari Ini, Minggu Ini, Bulan Ini)
             val categoryExpensesToday = expensesByCategoryToday.mapNotNull { (catId, amount) ->
@@ -149,7 +175,9 @@ class GetDashboardDataUseCase(
                 totalExpenseToday = totalExpenseToday,
                 totalExpenseThisWeek = totalExpenseThisWeek,
                 totalExpenseThisMonth = totalExpenseThisMonth,
-                monthlyBudgets = budgetProgressModels
+                monthlyBudgets = budgetProgressModels,
+                totalDebt = activeDebt,
+                totalReceivable = activeReceivable
             )
         }
     }

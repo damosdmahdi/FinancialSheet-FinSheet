@@ -13,15 +13,19 @@ class UpdateTransactionUseCase(
         transactionType: String,
         notes: String?,
         transactionDate: Long,
-        receiptLocalPath: String?
+        receiptLocalPath: String?,
+        accountId: String? = null,
+        isDitalangin: Boolean = false
     ) {
         val updatedTransaction = existingTransaction.copy(
             categoryId = categoryId,
             amount = amount,
+            accountId = accountId,
             transactionType = transactionType,
             notes = notes,
             transactionDate = transactionDate,
             receiptLocalPath = receiptLocalPath,
+            isDitalangin = isDitalangin,
             updatedAt = System.currentTimeMillis()
         )
         transactionRepository.updateTransaction(updatedTransaction)

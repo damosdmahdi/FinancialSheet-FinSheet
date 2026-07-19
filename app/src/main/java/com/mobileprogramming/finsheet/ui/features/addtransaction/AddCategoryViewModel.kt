@@ -32,9 +32,9 @@ class AddCategoryViewModel(
     private val _state = MutableStateFlow(AddCategoryState())
     val state: StateFlow<AddCategoryState> = _state.asStateFlow()
 
-    fun initForEdit(id: String?) {
+    fun initForEdit(id: String?, defaultType: String? = null) {
         if (id == null) {
-            _state.update { AddCategoryState() } // Reset to default
+            _state.update { AddCategoryState(transactionType = defaultType ?: "EXPENSE") } // Reset to default
             return
         }
         viewModelScope.launch {
@@ -58,7 +58,7 @@ class AddCategoryViewModel(
     }
 
     fun onNameChanged(name: String) {
-        _state.update { it.copy(categoryName = name) }
+        _state.update { it.copy(categoryName = name, error = null) }
     }
 
     fun onTypeChanged(type: String) {
@@ -76,7 +76,7 @@ class AddCategoryViewModel(
     fun saveCategory() {
         val currentState = _state.value
         if (currentState.categoryName.isBlank()) {
-            _state.update { it.copy(error = "Category name cannot be empty") }
+            _state.update { it.copy(error = "Nama kategori tidak boleh kosong") }
             return
         }
 
@@ -105,7 +105,7 @@ class AddCategoryViewModel(
                     _state.update { it.copy(isSaving = false, saveSuccess = true, createdCategoryId = newId) }
                 }
             } catch (e: Exception) {
-                _state.update { it.copy(isSaving = false, error = e.message ?: "Failed to save category") }
+                _state.update { it.copy(isSaving = false, error = e.message ?: "Gagal menyimpan kategori") }
             }
         }
     }

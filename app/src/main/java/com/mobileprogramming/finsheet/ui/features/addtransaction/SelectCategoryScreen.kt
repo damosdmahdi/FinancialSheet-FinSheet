@@ -1,5 +1,6 @@
 package com.mobileprogramming.finsheet.ui.features.addtransaction
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -8,10 +9,14 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -51,15 +56,42 @@ private data class SelectableCategoryItem(
 fun SelectCategoryScreen(
     viewModel: AddEditTransactionViewModel,
     onNavigateBack: () -> Unit,
-    onNavigateToAddCategory: () -> Unit
+    onNavigateToAddCategory: () -> Unit,
+    onNavigateToEditCategory: (String) -> Unit
 ) {
     val state by viewModel.state.collectAsState()
     
     /* ---- Local UI state ---- */
     var searchQuery by remember { mutableStateOf("") }
-    var selectedCategoryEntity by remember { mutableStateOf<com.mobileprogramming.finsheet.data.local.entity.CategoryEntity?>(null) }
+    var selectedCategoryEntity by remember(state.selectedCategory) {
+        mutableStateOf(state.selectedCategory)
+    }
+    var categoryToDelete by remember { mutableStateOf<SelectableCategoryItem?>(null) }
 
     val primaryBlue = Color(0xFF1A5BEB)
+
+    if (categoryToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { categoryToDelete = null },
+            title = { Text("Hapus Kategori") },
+            text = { Text("Apakah Anda yakin ingin menghapus kategori \"${categoryToDelete?.label}\"? Semua alokasi anggaran dan riwayat transaksi untuk kategori ini akan terpengaruh.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        categoryToDelete?.let { viewModel.deleteCategory(it.entity.id) }
+                        categoryToDelete = null
+                    }
+                ) {
+                    Text("Hapus", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { categoryToDelete = null }) {
+                    Text("Batal")
+                }
+            }
+        )
+    }
 
     // Filter categories by search query
     val allCategories = remember(state.categories) {
@@ -76,10 +108,28 @@ fun SelectCategoryScreen(
     }
     
     val filteredCategories = remember(searchQuery, allCategories) {
-        if (searchQuery.isBlank()) allCategories
+        val base = if (searchQuery.isBlank()) allCategories
         else allCategories.filter {
             it.label.contains(searchQuery, ignoreCase = true)
         }
+        val mutable = base.toMutableList()
+        if (searchQuery.isBlank() || "tambah".contains(searchQuery, ignoreCase = true)) {
+            mutable.add(
+                SelectableCategoryItem(
+                    entity = com.mobileprogramming.finsheet.data.local.entity.CategoryEntity(
+                        id = "virtual-add-category",
+                        categoryName = "Tambah Kategori",
+                        type = "EXPENSE",
+                        icon = "Add",
+                        color = "7B7FA6"
+                    ),
+                    label = "Tambah",
+                    icon = Icons.Default.Add,
+                    tint = Color(0xFF7B7FA6)
+                )
+            )
+        }
+        mutable
     }
 
     Scaffold(
@@ -193,6 +243,26 @@ fun SelectCategoryScreen(
                 )
             }
 
+            if (allCategories.isEmpty()) {
+                item(span = { GridItemSpan(4) }) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = "Kategori belanja belum tersedia. Silakan tambahkan kategori terlebih dahulu.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(horizontal = 16.dp)
+                        )
+                    }
+                }
+            }
+
             // ----------------------------------------------------------------
             // Category grid items
             // ----------------------------------------------------------------
@@ -201,7 +271,15 @@ fun SelectCategoryScreen(
                     item = item,
                     isSelected = selectedCategoryEntity?.id == item.entity.id,
                     primaryBlue = primaryBlue,
-                    onClick = { selectedCategoryEntity = item.entity }
+                    onEdit = { onNavigateToEditCategory(item.entity.id) },
+                    onDelete = { categoryToDelete = item },
+                    onClick = {
+                        if (item.entity.id == "virtual-add-category") {
+                            onNavigateToAddCategory()
+                        } else {
+                            selectedCategoryEntity = item.entity
+                        }
+                    }
                 )
             }
 
@@ -322,46 +400,98 @@ private fun SelectableCategoryGridItem(
     item: SelectableCategoryItem,
     isSelected: Boolean,
     primaryBlue: Color,
+    onEdit: (() -> Unit)? = null,
+    onDelete: (() -> Unit)? = null,
     onClick: () -> Unit
 ) {
+    val solidColor = CategoryIconMapper.getColorByHex(item.entity.color)
+    val circleBgColor = CategoryIconMapper.getBackgroundColorByHex(item.entity.color)
+    
     val borderColor = if (isSelected) primaryBlue
-    else MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
+    else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
 
-    val bgColor = if (isSelected) primaryBlue.copy(alpha = 0.08f)
+    val cardBgColor = if (isSelected) primaryBlue.copy(alpha = 0.08f)
     else MaterialTheme.colorScheme.surface
 
-    Column(
-        modifier = Modifier
-            .aspectRatio(1f)
-            .clip(RoundedCornerShape(14.dp))
-            .background(bgColor)
-            .border(
-                width = if (isSelected) 1.5.dp else 1.dp,
-                color = borderColor,
-                shape = RoundedCornerShape(14.dp)
-            )
-            .clickable(onClick = onClick)
-            .padding(vertical = 10.dp, horizontal = 4.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Icon(
-            imageVector = item.icon,
-            contentDescription = item.label,
-            modifier = Modifier.size(28.dp),
-            tint = if (isSelected) primaryBlue else item.tint
-        )
-        Spacer(modifier = Modifier.height(6.dp))
-        Text(
-            text = item.label,
-            style = MaterialTheme.typography.labelSmall.copy(
-                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                color = if (isSelected) primaryBlue
-                else MaterialTheme.colorScheme.onSurface
+    Box(modifier = Modifier.aspectRatio(0.85f)) {
+        OutlinedCard(
+            onClick = onClick,
+            border = BorderStroke(
+                width = if (isSelected) 2.dp else 1.dp,
+                color = borderColor
             ),
-            textAlign = TextAlign.Center,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
+            colors = CardDefaults.outlinedCardColors(
+                containerColor = cardBgColor
+            ),
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier.fillMaxSize()
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 4.dp, vertical = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(circleBgColor),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = item.icon,
+                        contentDescription = item.label,
+                        tint = solidColor,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = item.label,
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
+                )
+            }
+        }
+
+        if (item.entity.id != "virtual-add-category" && item.entity.categoryName != "Lainnya") {
+            if (onEdit != null) {
+                IconButton(
+                    onClick = onEdit,
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .size(28.dp)
+                        .padding(4.dp)
+                ) {
+                    Icon(
+                        imageVector = androidx.compose.material.icons.Icons.Filled.Edit,
+                        contentDescription = "Edit Kategori",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(14.dp)
+                    )
+                }
+            }
+
+            if (onDelete != null) {
+                IconButton(
+                    onClick = onDelete,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .size(28.dp)
+                        .padding(4.dp)
+                ) {
+                    Icon(
+                        imageVector = androidx.compose.material.icons.Icons.Filled.Delete,
+                        contentDescription = "Hapus Kategori",
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(14.dp)
+                    )
+                }
+            }
+        }
     }
 }

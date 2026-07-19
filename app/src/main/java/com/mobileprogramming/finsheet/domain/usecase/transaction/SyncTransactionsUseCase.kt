@@ -10,6 +10,9 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+import com.mobileprogramming.finsheet.data.local.dao.CategoryDao
+import com.mobileprogramming.finsheet.data.local.dao.AccountDao
+
 sealed class SyncResult {
     /** Data berhasil diunggah ke Sheets */
     object Success : SyncResult()
@@ -25,20 +28,77 @@ sealed class SyncResult {
 
 class SyncTransactionsUseCase(
     private val transactionDao: TransactionDao,
+    private val categoryDao: CategoryDao,
+    private val accountDao: AccountDao,
     private val sheetsRepository: GoogleSheetsRepository,
     private val authClient: GoogleAuthClient
 ) {
     suspend operator fun invoke(email: String): SyncResult = withContext(Dispatchers.IO) {
         try {
+            val appsScriptUrl = sheetsRepository.getAppsScriptUrl()
+            if (!appsScriptUrl.isNullOrBlank()) {
+                val pendingTransactions = transactionDao.getPendingSyncTransactions()
+                if (pendingTransactions.isEmpty()) {
+                    return@withContext SyncResult.NoNewData
+                }
+
+                val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+                val values = pendingTransactions.map { tx ->
+                    val typeIndo = when (tx.transactionType.uppercase(Locale.getDefault())) {
+                        "EXPENSE" -> "Pengeluaran"
+                        "INCOME" -> "Pemasukan"
+                        else -> tx.transactionType
+                    }
+                    val categoryName = if (tx.categoryId != null) {
+                        val category = categoryDao.getCategoryById(tx.categoryId)
+                        val name = category?.categoryName ?: "-"
+                        if (name.contains("hutang", ignoreCase = true) || name.contains("piutang", ignoreCase = true)) {
+                            "-"
+                        } else {
+                            name
+                        }
+                    } else {
+                        "-"
+                    }
+                    val accountName = if (tx.accountId != null) {
+                        val account = accountDao.getAccountById(tx.accountId)
+                        account?.name ?: "-"
+                    } else {
+                        "-"
+                    }
+                    listOf(
+                        sdf.format(Date(tx.transactionDate)),
+                        typeIndo,
+                        accountName,
+                        categoryName,
+                        tx.amount,
+                        tx.notes ?: "-"
+                    )
+                }
+
+                val success = sheetsRepository.appendTransactionsViaAppsScript(appsScriptUrl, values)
+                if (success) {
+                    val syncedIds = pendingTransactions.map { it.id }
+                    transactionDao.markAsSynced(syncedIds)
+                    return@withContext SyncResult.Success
+                } else {
+                    return@withContext SyncResult.Error("Gagal mengunggah ke Google Sheets via Apps Script")
+                }
+            }
+
             // 1. Get Access Token
-            val token = try {
-                authClient.getAccessToken(email)
-            } catch (e: com.google.android.gms.auth.UserRecoverableAuthException) {
-                Log.w("SyncUseCase", "Need user permission for Google Sheets scope", e)
-                return@withContext SyncResult.TokenError
-            } catch (e: Exception) {
-                Log.e("SyncUseCase", "Token error", e)
-                return@withContext SyncResult.TokenError
+            val token = if (email == "guest" || email.isBlank()) {
+                sheetsRepository.getManualAccessToken()
+            } else {
+                try {
+                    authClient.getAccessToken(email)
+                } catch (e: com.google.android.gms.auth.UserRecoverableAuthException) {
+                    Log.w("SyncUseCase", "Need user permission for Google Sheets scope", e)
+                    return@withContext SyncResult.TokenError
+                } catch (e: Exception) {
+                    Log.e("SyncUseCase", "Token error", e)
+                    return@withContext SyncResult.TokenError
+                }
             }
 
             if (token == null) return@withContext SyncResult.TokenError
@@ -56,14 +116,35 @@ class SyncTransactionsUseCase(
             // 4. Format data for Google Sheets
             val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
             val values = pendingTransactions.map { tx ->
+                val typeIndo = when (tx.transactionType.uppercase(Locale.getDefault())) {
+                    "EXPENSE" -> "Pengeluaran"
+                    "INCOME" -> "Pemasukan"
+                    else -> tx.transactionType
+                }
+                val categoryName = if (tx.categoryId != null) {
+                    val category = categoryDao.getCategoryById(tx.categoryId)
+                    val name = category?.categoryName ?: "-"
+                    if (name.contains("hutang", ignoreCase = true) || name.contains("piutang", ignoreCase = true)) {
+                        "-"
+                    } else {
+                        name
+                    }
+                } else {
+                    "-"
+                }
+                val accountName = if (tx.accountId != null) {
+                    val account = accountDao.getAccountById(tx.accountId)
+                    account?.name ?: "-"
+                } else {
+                    "-"
+                }
                 listOf(
-                    tx.id,
                     sdf.format(Date(tx.transactionDate)),
-                    tx.transactionType,
-                    tx.categoryId ?: "-",
-                    tx.amount.toString(),
-                    tx.notes ?: "-",
-                    sdf.format(Date(tx.createdAt))
+                    typeIndo,
+                    accountName,
+                    categoryName,
+                    tx.amount,
+                    tx.notes ?: "-"
                 )
             }
 

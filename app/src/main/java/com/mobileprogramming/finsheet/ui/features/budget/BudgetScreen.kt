@@ -12,7 +12,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DirectionsBus
 import androidx.compose.material.icons.filled.Edit
@@ -45,172 +44,15 @@ import com.mobileprogramming.finsheet.domain.usecase.budget.GetBudgetScreenDataU
 import com.mobileprogramming.finsheet.domain.usecase.budget.SaveCategoryBudgetsUseCase
 import com.mobileprogramming.finsheet.domain.usecase.budget.DeleteBudgetUseCase
 import com.mobileprogramming.finsheet.ui.features.addtransaction.CategoryIconMapper
-import kotlinx.coroutines.launch
-import androidx.lifecycle.viewModelScope
 
-// --- State and ViewModels ---
-
-data class BudgetCategoryState(
-    val id: String,
-    val name: String,
-    val icon: ImageVector,
-    val allocatedAmount: String,
-    val dailyAmount: String,
-    val colorHex: String? = null
-)
-
-data class BudgetUiState(
-    val totalBudget: String = "0",
-    val unallocatedBudget: String = "0",
-    val isEditing: Boolean = false,
-    val isEditingTotalBudget: Boolean = false,
-    val categories: List<BudgetCategoryState> = emptyList(),
-    val activeCurrency: com.mobileprogramming.finsheet.data.local.entity.CurrencyEntity? = null
-)
-
-class BudgetViewModel(
-    private val getBudgetScreenDataUseCase: GetBudgetScreenDataUseCase,
-    private val saveCategoryBudgetsUseCase: SaveCategoryBudgetsUseCase,
-    private val deleteBudgetUseCase: DeleteBudgetUseCase,
-    private val sharedPreferences: SharedPreferences,
-    private val getActiveCurrencyFlowUseCase: com.mobileprogramming.finsheet.domain.usecase.currency.GetActiveCurrencyFlowUseCase
-) : ViewModel() {
-
-    private val _uiState = MutableStateFlow(BudgetUiState())
-    val uiState: StateFlow<BudgetUiState> = _uiState.asStateFlow()
-
-    init {
-        loadData()
-    }
-
-    private fun loadData() {
-        val totalMonthly = sharedPreferences.getLong("total_monthly_budget", 0L)
-        _uiState.update { it.copy(totalBudget = totalMonthly.toString()) }
-
-        viewModelScope.launch {
-            getBudgetScreenDataUseCase().collect { screenData ->
-                val categories = screenData.categories.map { cat ->
-                    BudgetCategoryState(
-                        id = cat.categoryId,
-                        name = cat.categoryName,
-                        icon = CategoryIconMapper.getIconByName(cat.iconName),
-                        allocatedAmount = cat.allocatedAmount.toString(),
-                        dailyAmount = if (cat.allocatedAmount > 0) (cat.allocatedAmount / 30).toString() else "0",
-                        colorHex = cat.colorHex
-                    )
-                }
-                
-                val sumAllocated = screenData.categories.sumOf { it.allocatedAmount }
-                val unallocated = totalMonthly - sumAllocated
-
-                _uiState.update { state ->
-                    state.copy(
-                        categories = categories,
-                        unallocatedBudget = unallocated.toString()
-                    )
-                }
-            }
-        }
-    }
-
-    init {
-        viewModelScope.launch {
-            getActiveCurrencyFlowUseCase().collect { currency ->
-                _uiState.update { it.copy(activeCurrency = currency) }
-            }
-        }
-    }
-
-    fun toggleEditMode() {
-        _uiState.update { it.copy(isEditing = !it.isEditing) }
-    }
-
-    fun toggleEditTotalBudgetMode() {
-        _uiState.update { it.copy(isEditingTotalBudget = !it.isEditingTotalBudget) }
-    }
-
-    fun updateTotalBudget(newAmount: String) {
-        val filtered = newAmount.filter { it.isDigit() }
-        if (filtered.length <= 15) {
-            _uiState.update { it.copy(totalBudget = filtered) }
-            val amount = filtered.toLongOrNull() ?: 0L
-            sharedPreferences.edit().putLong("total_monthly_budget", amount).apply()
-            
-            val sumAllocated = _uiState.value.categories.sumOf { it.allocatedAmount.toLongOrNull() ?: 0L }
-            val unallocated = amount - sumAllocated
-            _uiState.update { it.copy(unallocatedBudget = unallocated.toString()) }
-        }
-    }
-
-    fun updateCategoryAmount(id: String, newAmount: String) {
-        val filtered = newAmount.filter { it.isDigit() }
-        if (filtered.length <= 15) {
-            _uiState.update { state ->
-                val updatedCategories = state.categories.map { category ->
-                    if (category.id == id) {
-                        val amount = filtered.toLongOrNull() ?: 0L
-                        category.copy(
-                            allocatedAmount = filtered,
-                            dailyAmount = if (amount > 0) (amount / 30).toString() else "0"
-                        )
-                    } else {
-                        category
-                    }
-                }
-                val total = state.totalBudget.toLongOrNull() ?: 0L
-                val sumAllocated = updatedCategories.sumOf { it.allocatedAmount.toLongOrNull() ?: 0L }
-                val unallocated = total - sumAllocated
-                
-                state.copy(
-                    categories = updatedCategories,
-                    unallocatedBudget = unallocated.toString()
-                )
-            }
-        }
-    }
-
-    fun deleteCategory(id: String) {
-        viewModelScope.launch {
-            deleteBudgetUseCase.deleteByCategoryId(id)
-        }
-    }
-
-    fun saveChanges() {
-        viewModelScope.launch {
-            _uiState.value.categories.forEach { category ->
-                val amount = category.allocatedAmount.toDoubleOrNull() ?: 0.0
-                if (amount > 0.0) {
-                    saveCategoryBudgetsUseCase(
-                        categoryId = category.id,
-                        budgetName = "Batas Anggaran ${category.name}",
-                        amountLimit = amount
-                    )
-                } else {
-                    deleteBudgetUseCase.deleteByCategoryId(category.id)
-                }
-            }
-            _uiState.update { it.copy(isEditing = false) }
-        }
-    }
-}
+// State and ViewModels are imported from BudgetViewModel.kt
 
 fun formatRupiah(amount: String): String {
     if (amount.isEmpty()) return "0"
     return try {
-        val number = amount.toDouble()
-        val formatter = java.text.DecimalFormat("#,##0.##", java.text.DecimalFormatSymbols(java.util.Locale.Builder().setLanguage("id").setRegion("ID").build()))
-        formatter.format(number)
-    } catch (e: Exception) {
-        amount
-    }
-}
-
-fun formatCurrencyWithRate(amount: String, rate: Double): String {
-    if (amount.isEmpty()) return "0"
-    return try {
-        val converted = amount.toDouble() * rate
-        val formatter = java.text.DecimalFormat("#,##0.##", java.text.DecimalFormatSymbols(java.util.Locale.Builder().setLanguage("id").setRegion("ID").build()))
-        formatter.format(converted)
+        val number = amount.toLong()
+        val formatter = java.text.DecimalFormat("#,###", java.text.DecimalFormatSymbols(java.util.Locale.Builder().setLanguage("id").setRegion("ID").build()))
+        formatter.format(number).replace(',', '.')
     } catch (e: Exception) {
         amount
     }
@@ -231,14 +73,37 @@ fun BudgetScreen(
     onNavigateToSettings: () -> Unit,
     onNavigateToAddBudget: () -> Unit
 ) {
-    val context = LocalContext.current
-    val viewModel: BudgetViewModel = viewModel(
-        factory = com.mobileprogramming.finsheet.di.Injection.provideBudgetViewModelFactory(context)
-    )
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    
-    val rate = uiState.activeCurrency?.rateToIdr ?: 1.0
-    val symbol = uiState.activeCurrency?.symbol ?: "Rp"
+    val context = LocalContext.current
+    var allocationToDelete by remember { mutableStateOf<BudgetCategoryState?>(null) }
+
+    LaunchedEffect(Unit) {
+        viewModel.refresh()
+    }
+
+    if (allocationToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { allocationToDelete = null },
+            title = { Text("Hapus Alokasi Anggaran") },
+            text = { Text("Apakah Anda yakin ingin menghapus alokasi anggaran untuk kategori \"${allocationToDelete?.name}\"?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        allocationToDelete?.let { viewModel.deleteCategory(it.id) }
+                        allocationToDelete = null
+                        Toast.makeText(context, "Alokasi anggaran berhasil dihapus", Toast.LENGTH_SHORT).show()
+                    }
+                ) {
+                    Text("Hapus", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { allocationToDelete = null }) {
+                    Text("Batal")
+                }
+            }
+        )
+    }
 
     Scaffold(
         bottomBar = {
@@ -295,30 +160,13 @@ fun BudgetScreen(
                             modifier = Modifier.padding(16.dp)
                         ) {
                             Column(modifier = Modifier.fillMaxWidth()) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        text = "Total Anggaran Bulanan",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    IconButton(
-                                        onClick = { viewModel.toggleEditTotalBudgetMode() },
-                                        modifier = Modifier.size(24.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = if (uiState.isEditingTotalBudget) Icons.Filled.Check else Icons.Filled.Edit,
-                                            contentDescription = if (uiState.isEditingTotalBudget) "Simpan" else "Ubah",
-                                            modifier = Modifier.size(16.dp),
-                                            tint = MaterialTheme.colorScheme.primary
-                                        )
-                                    }
-                                }
+                                Text(
+                                    text = "Total Anggaran Bulanan",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                                 Spacer(modifier = Modifier.height(4.dp))
-                                if (uiState.isEditingTotalBudget) {
+                                if (uiState.isEditing) {
                                     OutlinedTextField(
                                         value = uiState.totalBudget,
                                         onValueChange = { viewModel.updateTotalBudget(it) },
@@ -329,7 +177,7 @@ fun BudgetScreen(
                                         ),
                                         leadingIcon = {
                                             Text(
-                                                text = symbol,
+                                                text = com.mobileprogramming.finsheet.core.utils.CurrencyFormatter.getSymbol(uiState.selectedCurrency),
                                                 style = MaterialTheme.typography.titleLarge.copy(
                                                     fontWeight = FontWeight.Bold
                                                 ),
@@ -349,12 +197,34 @@ fun BudgetScreen(
                                             .fillMaxWidth()
                                     )
                                 } else {
-                                    Text(
-                                        text = "$symbol ${formatCurrencyWithRate(uiState.totalBudget, rate)}",
-                                        style = MaterialTheme.typography.headlineSmall.copy(
-                                            fontWeight = FontWeight.Bold
+                                    OutlinedTextField(
+                                        value = uiState.totalBudget,
+                                        onValueChange = {},
+                                        enabled = false,
+                                        textStyle = MaterialTheme.typography.titleLarge.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.primary
                                         ),
-                                        color = MaterialTheme.colorScheme.primary
+                                        leadingIcon = {
+                                            Text(
+                                                text = com.mobileprogramming.finsheet.core.utils.CurrencyFormatter.getSymbol(uiState.selectedCurrency),
+                                                style = MaterialTheme.typography.titleLarge.copy(
+                                                    fontWeight = FontWeight.Bold
+                                                ),
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        },
+                                        singleLine = true,
+                                        visualTransformation = RupiahVisualTransformation(),
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            disabledTextColor = MaterialTheme.colorScheme.primary,
+                                            disabledBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                                            disabledContainerColor = MaterialTheme.colorScheme.surface,
+                                            disabledLeadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                        ),
+                                        modifier = Modifier
+                                            .padding(top = 4.dp)
+                                            .fillMaxWidth()
                                     )
                                 }
                             }
@@ -366,9 +236,9 @@ fun BudgetScreen(
                             val containerColor = if (isExceeded) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surface
                             val contentColor = if (isExceeded) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurfaceVariant
                             val infoText = if (isExceeded) {
-                                "Melebihi total anggaran sebesar Rp ${formatRupiah((-unallocatedVal).toString())}"
+                                "Melebihi total anggaran sebesar ${com.mobileprogramming.finsheet.core.utils.CurrencyFormatter.format((-unallocatedVal).toString(), uiState.selectedCurrency)}"
                             } else {
-                                "Tersisa Rp ${formatRupiah(unallocatedVal.toString())} belum dialokasikan"
+                                "Tersisa ${com.mobileprogramming.finsheet.core.utils.CurrencyFormatter.format(unallocatedVal.toString(), uiState.selectedCurrency)} belum dialokasikan"
                             }
                             
                             Surface(
@@ -388,7 +258,7 @@ fun BudgetScreen(
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(
-                                        text = "Tersisa $symbol ${formatCurrencyWithRate(uiState.unallocatedBudget, rate)} belum dialokasikan",
+                                        text = infoText,
                                         style = MaterialTheme.typography.bodySmall,
                                         color = contentColor
                                     )
@@ -415,20 +285,20 @@ fun BudgetScreen(
                         color = MaterialTheme.colorScheme.onBackground
                     )
 
-                    if (!uiState.isEditing) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Button(
-                                onClick = onNavigateToAddBudget,
-                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Filled.Add,
-                                    contentDescription = "Tambah",
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(text = "Tambah")
-                            }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(
+                            onClick = onNavigateToAddBudget,
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Add,
+                                contentDescription = "Tambah",
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(text = "Tambah")
+                        }
+                        if (!uiState.isEditing) {
                             OutlinedButton(
                                 onClick = { viewModel.toggleEditMode() },
                                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
@@ -451,17 +321,16 @@ fun BudgetScreen(
                 BudgetCategoryItem(
                     category = category,
                     isEditing = uiState.isEditing,
-                    symbol = symbol,
-                    rate = rate,
+                    currencyCode = uiState.selectedCurrency,
                     onAmountChanged = { newAmount ->
                         viewModel.updateCategoryAmount(category.id, newAmount)
                     },
                     onDelete = {
-                        viewModel.deleteCategory(category.id)
+                        allocationToDelete = category
                     }
                 )
             }
-            
+
             item {
                 AnimatedVisibility(visible = uiState.isEditing) {
                     val unallocatedVal = uiState.unallocatedBudget.toLongOrNull() ?: 0L
@@ -491,8 +360,7 @@ fun BudgetScreen(
 fun BudgetCategoryItem(
     category: BudgetCategoryState,
     isEditing: Boolean,
-    symbol: String,
-    rate: Double,
+    currencyCode: String,
     onAmountChanged: (String) -> Unit,
     onDelete: () -> Unit
 ) {
@@ -514,20 +382,14 @@ fun BudgetCategoryItem(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    val iconBgColor = if (!category.colorHex.isNullOrBlank())
-                        CategoryIconMapper.getBackgroundColorByHex(category.colorHex)
-                    else
-                        MaterialTheme.colorScheme.secondaryContainer
-                    val iconTintColor = if (!category.colorHex.isNullOrBlank())
-                        CategoryIconMapper.getColorByHex(category.colorHex)
-                    else
-                        MaterialTheme.colorScheme.onSecondaryContainer
+                    val iconColor = CategoryIconMapper.getColorByHex(category.colorHex)
+                    val bgColor = CategoryIconMapper.getBackgroundColorByHex(category.colorHex)
 
                     Box(
                         modifier = Modifier
                             .size(40.dp)
                             .background(
-                                color = iconBgColor,
+                                color = bgColor,
                                 shape = CircleShape
                             ),
                         contentAlignment = Alignment.Center
@@ -535,7 +397,7 @@ fun BudgetCategoryItem(
                         Icon(
                             imageVector = category.icon,
                             contentDescription = category.name,
-                            tint = iconTintColor
+                            tint = iconColor
                         )
                     }
                     Spacer(modifier = Modifier.width(12.dp))
@@ -568,36 +430,97 @@ fun BudgetCategoryItem(
             )
             Spacer(modifier = Modifier.height(8.dp))
             
-            OutlinedTextField(
-                value = if (isEditing) category.allocatedAmount else formatCurrencyWithRate(category.allocatedAmount, rate),
-                onValueChange = onAmountChanged,
-                modifier = Modifier.fillMaxWidth(),
-                enabled = isEditing,
-                leadingIcon = {
-                    Text(
-                        text = symbol,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = if (isEditing) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
+            if (isEditing) {
+                OutlinedTextField(
+                    value = category.allocatedAmount,
+                    onValueChange = onAmountChanged,
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = true,
+                    leadingIcon = {
+                        Text(
+                            text = com.mobileprogramming.finsheet.core.utils.CurrencyFormatter.getSymbol(currencyCode),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true,
+                    visualTransformation = RupiahVisualTransformation(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
                     )
-                },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                singleLine = true,
-                visualTransformation = RupiahVisualTransformation(),
-                colors = OutlinedTextFieldDefaults.colors(
-                    disabledTextColor = MaterialTheme.colorScheme.onSurface,
-                    disabledBorderColor = MaterialTheme.colorScheme.outlineVariant,
-                    disabledLeadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-            )
+            } else {
+                OutlinedTextField(
+                    value = category.allocatedAmount,
+                    onValueChange = {},
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = false,
+                    textStyle = MaterialTheme.typography.titleLarge.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    ),
+                    leadingIcon = {
+                        Text(
+                            text = com.mobileprogramming.finsheet.core.utils.CurrencyFormatter.getSymbol(currencyCode),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
+                    singleLine = true,
+                    visualTransformation = RupiahVisualTransformation(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        disabledTextColor = MaterialTheme.colorScheme.primary,
+                        disabledBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                        disabledContainerColor = MaterialTheme.colorScheme.surface,
+                        disabledLeadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                )
+            }
             
             Spacer(modifier = Modifier.height(8.dp))
             
-            if (category.dailyAmount.isNotEmpty()) {
+            val dailyText = if (category.dailyAmount.isNotEmpty() && category.dailyAmount != "0") {
+                "perhari sekitar ${com.mobileprogramming.finsheet.core.utils.CurrencyFormatter.format(category.dailyAmount, currencyCode)}"
+            } else null
+            
+            val weeklyText = if (category.weeklyAmount.isNotEmpty() && category.weeklyAmount != "0") {
+                "perminggu sekitar ${com.mobileprogramming.finsheet.core.utils.CurrencyFormatter.format(category.weeklyAmount, currencyCode)}"
+            } else null
+
+            if (dailyText != null || weeklyText != null) {
+                val combinedText = listOfNotNull(dailyText, weeklyText).joinToString(" | ")
                 Text(
-                    text = "Anggaran perhari sekitar $symbol ${formatCurrencyWithRate(category.dailyAmount, rate)}",
+                    text = "Anggaran $combinedText",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
+
+            if (category.reallocationLabels.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(6.dp))
+                category.reallocationLabels.forEach { label ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(vertical = 2.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Info,
+                            contentDescription = null,
+                            tint = if (label.startsWith("Telah")) Color(0xFFE53935) else Color(0xFF2E7D32),
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = label,
+                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+                            color = if (label.startsWith("Telah")) Color(0xFFE53935) else Color(0xFF2E7D32)
+                        )
+                    }
+                }
             }
         }
     }

@@ -11,5 +11,8 @@ data class TransactionItemModel(
     val amount: Double,
     val isExpense: Boolean,
     val transactionDate: Long,
-    val receiptLocalPath: String? = null
+    val receiptLocalPath: String? = null,
+    val transactionType: String = "EXPENSE",
+    val status: String? = null,
+    val isDitalangin: Boolean = false
 )

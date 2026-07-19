@@ -23,6 +23,9 @@ interface TransactionDao {
     @Query("UPDATE transactions SET deleted_at = :timestamp, sync_status = 'PENDING' WHERE id = :id")
     suspend fun softDeleteTransaction(id: String, timestamp: Long)
 
+    @Query("UPDATE transactions SET status = :status, account_id = :accountId, updated_at = :updatedAt, sync_status = 'PENDING' WHERE id = :id")
+    suspend fun updateTransactionStatus(id: String, status: String?, accountId: String?, updatedAt: Long)
+
     // Tampilkan riwayat transaksi dari yang terbaru
     @Query("SELECT * FROM transactions WHERE deleted_at IS NULL ORDER BY transaction_date DESC")
     fun getAllActiveTransactions(): Flow<List<TransactionEntity>>

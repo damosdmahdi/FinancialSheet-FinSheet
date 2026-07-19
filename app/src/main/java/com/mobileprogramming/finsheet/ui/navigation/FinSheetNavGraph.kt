@@ -1,6 +1,14 @@
 package com.mobileprogramming.finsheet.ui.navigation
 
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -15,6 +23,7 @@ import com.mobileprogramming.finsheet.ui.features.settings.SettingsScreen
 import com.mobileprogramming.finsheet.ui.features.budget.AddBudgetScreen
 import com.mobileprogramming.finsheet.ui.features.auth.LoginScreen
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import com.mobileprogramming.finsheet.di.Injection
 
 private fun NavHostController.navigateBottomNav(route: Any) {
     navigate(route) {
@@ -33,7 +42,31 @@ fun FinSheetNavGraph(
 ) {
     NavHost(
         navController = navController,
-        startDestination = startDestination
+        startDestination = startDestination,
+        enterTransition = {
+            slideIntoContainer(
+                AnimatedContentTransitionScope.SlideDirection.Left,
+                animationSpec = tween(120, easing = FastOutSlowInEasing)
+            ) + fadeIn(animationSpec = tween(120))
+        },
+        exitTransition = {
+            slideOutOfContainer(
+                AnimatedContentTransitionScope.SlideDirection.Left,
+                animationSpec = tween(120, easing = FastOutSlowInEasing)
+            ) + fadeOut(animationSpec = tween(120))
+        },
+        popEnterTransition = {
+            slideIntoContainer(
+                AnimatedContentTransitionScope.SlideDirection.Right,
+                animationSpec = tween(120, easing = FastOutSlowInEasing)
+            ) + fadeIn(animationSpec = tween(120))
+        },
+        popExitTransition = {
+            slideOutOfContainer(
+                AnimatedContentTransitionScope.SlideDirection.Right,
+                animationSpec = tween(120, easing = FastOutSlowInEasing)
+            ) + fadeOut(animationSpec = tween(120))
+        }
     ) {
         composable<Screen.Login> {
             LoginScreen(
@@ -61,6 +94,9 @@ fun FinSheetNavGraph(
                 },
                 onNavigateToAnggaran = {
                     navController.navigateBottomNav(Screen.Budget)
+                },
+                onNavigateToAddTransfer = {
+                    navController.navigate(Screen.AddTransfer())
                 }
             )
         }
@@ -76,6 +112,9 @@ fun FinSheetNavGraph(
                 },
                 onNavigateToTransaction = { transactionId ->
                     navController.navigate(Screen.AddTransaction(transactionId = transactionId))
+                },
+                onNavigateToTransfer = { transferId ->
+                    navController.navigate(Screen.AddTransfer(transferId = transferId))
                 },
                 onNavigateToAnggaran = {
                     navController.navigateBottomNav(Screen.Budget)
@@ -97,44 +136,43 @@ fun FinSheetNavGraph(
             androidx.compose.runtime.LaunchedEffect(route.transactionId) {
                 viewModel.initForEdit(route.transactionId)
             }
+
+            val newCategoryId by backStackEntry.savedStateHandle.getStateFlow<String?>("new_category_id", null).collectAsState()
+            LaunchedEffect(newCategoryId) {
+                newCategoryId?.let { id ->
+                    viewModel.selectCategoryById(id)
+                    backStackEntry.savedStateHandle.set("new_category_id", null)
+                }
+            }
+
             AddTransactionScreen(
                 viewModel = viewModel,
+                transactionId = route.transactionId,
                 onNavigateBack = { navController.popBackStack() },
-                onNavigateToSelectCategory = {
-                    navController.navigate(Screen.SelectCategory)
+                onNavigateToAddCategory = {
+                    navController.navigate(Screen.AddCategory(type = viewModel.state.value.transactionType))
                 },
-                onNavigateToAddCategory = {
-                    navController.navigate(Screen.AddCategory)
+                onNavigateToEditCategory = { categoryId ->
+                    navController.navigate(Screen.AddCategory(categoryId = categoryId, type = viewModel.state.value.transactionType))
                 }
             )
         }
 
-        composable<Screen.SelectCategory> { backStackEntry ->
-            val parentEntry = androidx.compose.runtime.remember(backStackEntry) {
-                navController.getBackStackEntry<Screen.AddTransaction>()
-            }
-            val context = androidx.compose.ui.platform.LocalContext.current
-            val viewModel: com.mobileprogramming.finsheet.ui.features.addtransaction.AddEditTransactionViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
-                parentEntry,
-                factory = com.mobileprogramming.finsheet.di.Injection.provideTransactionViewModelFactory(context)
-            )
-            SelectCategoryScreen(
-                viewModel = viewModel,
-                onNavigateBack = { navController.popBackStack() },
-                onNavigateToAddCategory = {
-                    navController.navigate(Screen.AddCategory)
-                }
-            )
-        }
-
-        composable<Screen.AddCategory> {
+        composable<Screen.AddCategory> { backStackEntry ->
+            val route = backStackEntry.toRoute<Screen.AddCategory>()
             val context = androidx.compose.ui.platform.LocalContext.current
             val viewModel: com.mobileprogramming.finsheet.ui.features.addtransaction.AddCategoryViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
                 factory = com.mobileprogramming.finsheet.di.Injection.provideTransactionViewModelFactory(context)
             )
+            androidx.compose.runtime.LaunchedEffect(route.categoryId, route.type) {
+                viewModel.initForEdit(route.categoryId, route.type)
+            }
             AddCategoryScreen(
                 viewModel = viewModel,
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = { navController.popBackStack() },
+                onCategorySaved = { categoryId ->
+                    navController.previousBackStackEntry?.savedStateHandle?.set("new_category_id", categoryId)
+                }
             )
         }
         
@@ -163,6 +201,18 @@ fun FinSheetNavGraph(
                     navController.navigate(Screen.Login) {
                         popUpTo(0) { inclusive = true }
                     }
+                },
+                onNavigateToAddAccount = {
+                    navController.navigate(Screen.AddEditAccount())
+                },
+                onNavigateToEditAccount = { accountId ->
+                    navController.navigate(Screen.AddEditAccount(accountId = accountId))
+                },
+                onNavigateToAddReminder = {
+                    navController.navigate(Screen.AddEditReminder())
+                },
+                onNavigateToEditReminder = { id ->
+                    navController.navigate(Screen.AddEditReminder(reminderId = id))
                 }
             )
         }
@@ -191,8 +241,66 @@ fun FinSheetNavGraph(
             AddBudgetScreen(
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToAddCategory = {
-                    navController.navigate(Screen.AddCategory)
+                    navController.navigate(Screen.AddCategory(type = "EXPENSE"))
+                },
+                onNavigateToEditCategory = { categoryId ->
+                    navController.navigate(Screen.AddCategory(categoryId = categoryId, type = "EXPENSE"))
                 }
+            )
+        }
+
+        composable<Screen.AccountList> {
+            val context = androidx.compose.ui.platform.LocalContext.current
+            val viewModel: com.mobileprogramming.finsheet.ui.features.account.AccountViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+                factory = Injection.provideAccountViewModelFactory(context)
+            )
+            com.mobileprogramming.finsheet.ui.features.account.AccountListScreen(
+                viewModel = viewModel,
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToAddAccount = { navController.navigate(Screen.AddEditAccount()) },
+                onNavigateToEditAccount = { accountId -> navController.navigate(Screen.AddEditAccount(accountId = accountId)) }
+            )
+        }
+
+        composable<Screen.AddEditAccount> { backStackEntry ->
+            val route = backStackEntry.toRoute<Screen.AddEditAccount>()
+            val context = androidx.compose.ui.platform.LocalContext.current
+            val viewModel: com.mobileprogramming.finsheet.ui.features.account.AccountViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+                factory = Injection.provideAccountViewModelFactory(context)
+            )
+            com.mobileprogramming.finsheet.ui.features.account.AddEditAccountScreen(
+                viewModel = viewModel,
+                accountId = route.accountId,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable<Screen.AddTransfer> { backStackEntry ->
+            val route = backStackEntry.toRoute<Screen.AddTransfer>()
+            val context = androidx.compose.ui.platform.LocalContext.current
+            val viewModel: com.mobileprogramming.finsheet.ui.features.transfer.TransferViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+                factory = Injection.provideTransferViewModelFactory(context)
+            )
+            androidx.compose.runtime.LaunchedEffect(route.transferId) {
+                viewModel.initForm(route.transferId)
+            }
+            com.mobileprogramming.finsheet.ui.features.transfer.AddTransferScreen(
+                viewModel = viewModel,
+                transferId = route.transferId,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable<Screen.AddEditReminder> { backStackEntry ->
+            val route = backStackEntry.toRoute<Screen.AddEditReminder>()
+            val context = androidx.compose.ui.platform.LocalContext.current
+            val viewModel: com.mobileprogramming.finsheet.ui.features.settings.SettingsViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+                factory = Injection.provideSettingsViewModelFactory(context)
+            )
+            com.mobileprogramming.finsheet.ui.features.settings.AddEditReminderScreen(
+                viewModel = viewModel,
+                reminderId = route.reminderId,
+                onNavigateBack = { navController.popBackStack() }
             )
         }
     }

@@ -7,7 +7,11 @@ data class DashboardUiState(
     val selectedFilterIndex: Int = 2, // 0: Hari Ini, 1: Minggu Ini, 2: Bulan Ini
     val totalExpenseForFilter: String = "Rp 0",
     val categoryExpenses: List<CategoryExpenseData> = emptyList(),
-    val monthlyBudgets: List<BudgetProgressData> = emptyList()
+    val monthlyBudgets: List<BudgetProgressData> = emptyList(),
+    val accounts: List<com.mobileprogramming.finsheet.data.local.entity.AccountEntity> = emptyList(),
+    val selectedAccountId: String? = null,
+    val totalDebt: String = "Rp 0",
+    val totalReceivable: String = "Rp 0"
 )
 
 data class CategoryExpenseData(

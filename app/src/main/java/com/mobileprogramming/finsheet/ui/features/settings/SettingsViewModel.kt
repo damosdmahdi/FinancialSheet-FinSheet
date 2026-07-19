@@ -21,6 +21,7 @@ data class SettingsUiState(
     val anggaranHarian: Boolean = true,
     val anggaranMingguan: Boolean = true,
     val anggaranBulanan: Boolean = true,
+    val otomatisTutupKekurangan: Boolean = false,
     val isUserLoggedIn: Boolean = false,
     val isGuest: Boolean = false,
     val userDisplayName: String? = null,
@@ -34,7 +35,8 @@ class SettingsViewModel(
     private val getActiveCurrencyUseCase: GetActiveCurrencyUseCase,
     private val getAllCurrenciesUseCase: GetAllCurrenciesUseCase,
     private val setPreferredCurrencyUseCase: SetPreferredCurrencyUseCase,
-    private val syncCurrenciesUseCase: SyncCurrenciesUseCase
+    private val syncCurrenciesUseCase: SyncCurrenciesUseCase,
+    private val reminderRepository: com.mobileprogramming.finsheet.domain.repository.ReminderRepository
 ) : ViewModel() {
 
     private val auth = FirebaseAuth.getInstance()
@@ -51,6 +53,9 @@ class SettingsViewModel(
     private val _isSyncing = MutableStateFlow(false)
     val isSyncing: StateFlow<Boolean> = _isSyncing.asStateFlow()
 
+    private val _reminders = MutableStateFlow<List<com.mobileprogramming.finsheet.data.local.entity.ReminderEntity>>(emptyList())
+    val reminders: StateFlow<List<com.mobileprogramming.finsheet.data.local.entity.ReminderEntity>> = _reminders.asStateFlow()
+
     private val authStateListener = FirebaseAuth.AuthStateListener { firebaseAuth ->
         val user = firebaseAuth.currentUser
         updateUserState(user)
@@ -61,12 +66,56 @@ class SettingsViewModel(
         loadPreferences()
         fetchActiveCurrency()
         observeCurrencies()
+        loadReminders()
+    }
+
+    private fun loadReminders() {
+        viewModelScope.launch {
+            reminderRepository.getAllRemindersFlow().collect { list ->
+                _reminders.value = list
+            }
+        }
+    }
+
+    fun toggleReminderActive(context: android.content.Context, reminder: com.mobileprogramming.finsheet.data.local.entity.ReminderEntity, isActive: Boolean) {
+        viewModelScope.launch {
+            val updated = reminder.copy(isActive = isActive, updatedAt = System.currentTimeMillis())
+            reminderRepository.updateReminder(updated)
+            if (isActive) {
+                com.mobileprogramming.finsheet.core.utils.AlarmScheduler.scheduleAlarm(context, updated)
+            } else {
+                com.mobileprogramming.finsheet.core.utils.AlarmScheduler.cancelAlarm(context, updated.id)
+            }
+        }
+    }
+
+    fun saveReminder(context: android.content.Context, reminder: com.mobileprogramming.finsheet.data.local.entity.ReminderEntity) {
+        viewModelScope.launch {
+            reminderRepository.insertReminder(reminder)
+            if (reminder.isActive) {
+                com.mobileprogramming.finsheet.core.utils.AlarmScheduler.scheduleAlarm(context, reminder)
+            } else {
+                com.mobileprogramming.finsheet.core.utils.AlarmScheduler.cancelAlarm(context, reminder.id)
+            }
+        }
+    }
+
+    fun deleteReminder(context: android.content.Context, id: String) {
+        viewModelScope.launch {
+            com.mobileprogramming.finsheet.core.utils.AlarmScheduler.cancelAlarm(context, id)
+            reminderRepository.deleteReminderById(id)
+        }
+    }
+
+    suspend fun getReminderById(id: String): com.mobileprogramming.finsheet.data.local.entity.ReminderEntity? {
+        return reminderRepository.getReminderById(id)
     }
 
     private fun loadPreferences() {
         val dailyBudget = sharedPreferences.getBoolean("anggaran_harian_terlewati", true)
         val weeklyBudget = sharedPreferences.getBoolean("anggaran_mingguan_terlewati", true)
         val monthlyBudget = sharedPreferences.getBoolean("anggaran_bulanan_terlewati", true)
+        val autoReallocate = sharedPreferences.getBoolean("otomatis_tutup_kekurangan", false)
         val customPhoto = sharedPreferences.getString("custom_profile_photo", null)
         
         _uiState.update { currentState ->
@@ -74,6 +123,7 @@ class SettingsViewModel(
                 anggaranHarian = dailyBudget,
                 anggaranMingguan = weeklyBudget,
                 anggaranBulanan = monthlyBudget,
+                otomatisTutupKekurangan = autoReallocate,
                 customProfilePhotoPath = customPhoto
             )
         }
@@ -104,6 +154,11 @@ class SettingsViewModel(
     fun setAnggaranBulanan(value: Boolean) {
         sharedPreferences.edit().putBoolean("anggaran_bulanan_terlewati", value).apply()
         _uiState.update { it.copy(anggaranBulanan = value) }
+    }
+
+    fun setOtomatisTutupKekurangan(value: Boolean) {
+        sharedPreferences.edit().putBoolean("otomatis_tutup_kekurangan", value).apply()
+        _uiState.update { it.copy(otomatisTutupKekurangan = value) }
     }
 
     fun setAnggaranHarian(value: Boolean) {
@@ -188,7 +243,8 @@ class SettingsViewModelFactory(
     private val getActiveCurrencyUseCase: GetActiveCurrencyUseCase,
     private val getAllCurrenciesUseCase: GetAllCurrenciesUseCase,
     private val setPreferredCurrencyUseCase: SetPreferredCurrencyUseCase,
-    private val syncCurrenciesUseCase: SyncCurrenciesUseCase
+    private val syncCurrenciesUseCase: SyncCurrenciesUseCase,
+    private val reminderRepository: com.mobileprogramming.finsheet.domain.repository.ReminderRepository
 ) : ViewModelProvider.Factory {
     
     @Suppress("UNCHECKED_CAST")
@@ -199,7 +255,8 @@ class SettingsViewModelFactory(
                 getActiveCurrencyUseCase,
                 getAllCurrenciesUseCase,
                 setPreferredCurrencyUseCase,
-                syncCurrenciesUseCase
+                syncCurrenciesUseCase,
+                reminderRepository
             ) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")

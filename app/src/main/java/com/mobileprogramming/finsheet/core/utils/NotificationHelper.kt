@@ -52,4 +52,49 @@ object NotificationHelper {
 
         notificationManager.notify(notificationId, builder.build())
     }
+
+    fun showReminderNotification(
+        context: Context,
+        title: String,
+        message: String,
+        notificationId: Int
+    ) {
+        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val reminderChannelId = "reminder_notifications"
+        val reminderChannelName = "Pengingat FinSheet"
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                reminderChannelId,
+                reminderChannelName,
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Notifikasi pengingat untuk mencatat pengeluaran"
+            }
+            notificationManager.createNotificationChannel(channel)
+        }
+
+        val largeIconBitmap = try {
+            android.graphics.BitmapFactory.decodeResource(
+                context.resources,
+                com.mobileprogramming.finsheet.R.drawable.logo_finsheet
+            )
+        } catch (e: Exception) {
+            null
+        }
+
+        val builder = NotificationCompat.Builder(context, reminderChannelId)
+            .setSmallIcon(com.mobileprogramming.finsheet.R.drawable.ic_notification)
+            .apply {
+                if (largeIconBitmap != null) {
+                    setLargeIcon(largeIconBitmap)
+                }
+            }
+            .setContentTitle(title)
+            .setContentText(message)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+
+        notificationManager.notify(notificationId, builder.build())
+    }
 }

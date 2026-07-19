@@ -5,14 +5,17 @@ import androidx.lifecycle.ViewModelProvider
 import com.mobileprogramming.finsheet.domain.usecase.GetDashboardDataUseCase
 import com.mobileprogramming.finsheet.domain.usecase.currency.GetActiveCurrencyFlowUseCase
 
+import com.mobileprogramming.finsheet.domain.repository.AccountRepository
+
 class DashboardViewModelFactory(
     private val getDashboardDataUseCase: GetDashboardDataUseCase,
-    private val getActiveCurrencyFlowUseCase: GetActiveCurrencyFlowUseCase
+    private val getActiveCurrencyFlowUseCase: GetActiveCurrencyFlowUseCase,
+    private val accountRepository: AccountRepository
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(DashboardViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return DashboardViewModel(getDashboardDataUseCase, getActiveCurrencyFlowUseCase) as T
+            return DashboardViewModel(getDashboardDataUseCase, getActiveCurrencyFlowUseCase, accountRepository) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

@@ -27,6 +27,10 @@ class TransactionRepositoryImpl(
         transactionDao.updateTransaction(transaction)
     }
 
+    override suspend fun updateTransactionStatus(id: String, status: String?, accountId: String?) {
+        transactionDao.updateTransactionStatus(id, status, accountId, System.currentTimeMillis())
+    }
+
     override suspend fun deleteTransaction(id: String) {
         transactionDao.softDeleteTransaction(id, System.currentTimeMillis())
     }

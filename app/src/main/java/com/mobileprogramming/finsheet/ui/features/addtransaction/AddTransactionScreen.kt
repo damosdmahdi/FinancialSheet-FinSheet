@@ -61,19 +61,37 @@ private data class CategoryItem(
     val iconColor: Color = Color.Unspecified
 )
 
-private fun mapCategoriesToUI(categories: List<com.mobileprogramming.finsheet.data.local.entity.CategoryEntity>): List<CategoryItem> {
-    val items = categories
-        .filter { it.categoryName != "Lainnya" }
-        .take(7)
-        .map {
-            CategoryItem(
-                id = it.id,
-                label = it.categoryName,
-                icon = CategoryIconMapper.getIconByName(it.icon),
-                bgColor = CategoryIconMapper.getBackgroundColorByHex(it.color),
-                iconColor = CategoryIconMapper.getColorByHex(it.color)
-            )
-        }.toMutableList()
+private fun mapCategoriesToUI(
+    categories: List<com.mobileprogramming.finsheet.data.local.entity.CategoryEntity>,
+    selectedCategory: com.mobileprogramming.finsheet.data.local.entity.CategoryEntity?
+): List<CategoryItem> {
+    val activeCats = categories.filter { it.categoryName != "Lainnya" }
+    
+    val selectedInActive = selectedCategory?.let { sel -> activeCats.find { it.id == sel.id } }
+    
+    val displayedCats = if (selectedInActive != null) {
+        val first7 = activeCats.take(7).toMutableList()
+        if (!first7.any { it.id == selectedInActive.id }) {
+            if (first7.size >= 7) {
+                first7[6] = selectedInActive
+            } else {
+                first7.add(selectedInActive)
+            }
+        }
+        first7
+    } else {
+        activeCats.take(7)
+    }
+
+    val items = displayedCats.map {
+        CategoryItem(
+            id = it.id,
+            label = it.categoryName,
+            icon = CategoryIconMapper.getIconByName(it.icon),
+            bgColor = CategoryIconMapper.getBackgroundColorByHex(it.color),
+            iconColor = CategoryIconMapper.getColorByHex(it.color)
+        )
+    }.toMutableList()
     
     items.add(CategoryItem(null, "Tambah", Icons.Filled.Add, Color(0xFFF0F0F8), Color(0xFF7B7FA6)))
     return items
@@ -151,12 +169,39 @@ private fun decodeBitmapWithCorrectOrientation(context: Context, uri: Uri): Bitm
 @Composable
 fun AddTransactionScreen(
     viewModel: AddEditTransactionViewModel,
+    transactionId: String? = null,
     onNavigateBack: () -> Unit,
-    onNavigateToSelectCategory: () -> Unit,
-    onNavigateToAddCategory: () -> Unit
+    onNavigateToAddCategory: () -> Unit,
+    onNavigateToEditCategory: (String) -> Unit
 ) {
     val state by viewModel.state.collectAsState()
-    
+    val isEditing = transactionId != null
+    val primaryBlue = Color(0xFF1A5BEB)
+
+    if (isEditing && state.amount.isEmpty()) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator(color = primaryBlue)
+        }
+        return
+    }
+
+    var showAllCategories by remember { mutableStateOf(false) }
+
+    if (showAllCategories) {
+        SelectCategoryScreen(
+            viewModel = viewModel,
+            onNavigateBack = { showAllCategories = false },
+            onNavigateToAddCategory = onNavigateToAddCategory,
+            onNavigateToEditCategory = onNavigateToEditCategory
+        )
+        return
+    }
+
     /* ---- Local UI state ---- */
     var selectedCurrency by remember { mutableStateOf("IDR") }
     var currencyDropdownExpanded by remember { mutableStateOf(false) }
@@ -182,8 +227,6 @@ fun AddTransactionScreen(
             onNavigateBack()
         }
     }
-
-    val primaryBlue = Color(0xFF1A5BEB)
 
     // Image state
     val context = LocalContext.current
@@ -250,7 +293,7 @@ fun AddTransactionScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = if (state.isEditMode) "Edit Transaksi" else "Catat Transaksi",
+                        text = if (isEditing) "Edit Transaksi" else "Catat Transaksi",
                         style = MaterialTheme.typography.titleLarge.copy(
                             fontWeight = FontWeight.Bold
                         )
@@ -270,7 +313,7 @@ fun AddTransactionScreen(
                     navigationIconContentColor = MaterialTheme.colorScheme.onSurface
                 ),
                 actions = {
-                    if (state.isEditMode) {
+                    if (isEditing) {
                         IconButton(onClick = { showDeleteDialog = true }) {
                             Icon(
                                 imageVector = Icons.Default.Delete,
@@ -354,11 +397,13 @@ fun AddTransactionScreen(
             // ----------------------------------------------------------------
             // 1. Segmented Pill Toggle
             // ----------------------------------------------------------------
-            SegmentedTypeToggle(
-                selected = state.transactionType,
-                onSelect = { viewModel.onTypeChanged(it) },
-                primaryBlue = primaryBlue
-            )
+            if (!isEditing) {
+                SegmentedTypeToggle(
+                    selected = state.transactionType,
+                    onSelect = { viewModel.onTypeChanged(it) },
+                    primaryBlue = primaryBlue
+                )
+            }
 
             // ----------------------------------------------------------------
             // 2. Amount Input Card
@@ -371,44 +416,242 @@ fun AddTransactionScreen(
             )
 
             // ----------------------------------------------------------------
-            // 3. Kategori Label + Grid
+            // 2.5. Account Selector (Popup Dialog)
             // ----------------------------------------------------------------
-            val currentCategories = mapCategoriesToUI(state.categories)
-            val categoryLabel = if (state.transactionType == "EXPENSE")
-                "Kategori Pengeluaran" else "Kategori Pemasukan"
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            var showAccountPopup by remember { mutableStateOf(false) }
+            val selectedAccount = state.accounts.find { it.id == state.selectedAccountId }
+            
+            val format = java.text.NumberFormat.getCurrencyInstance(java.util.Locale("en", "US"))
+            format.maximumFractionDigits = 0
+            format.minimumFractionDigits = 0
+            val rate = state.activeCurrency?.rateToIdr ?: 1.0
+            val symbol = state.activeCurrency?.symbol ?: "Rp"
+            val formatBalance = { amount: Double ->
+                format.format(amount * rate).replace("$", "$symbol ")
+            }
+            val isDitalangin = state.transactionType == "DEBT" && state.isDitalangin
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text(
-                    text = categoryLabel,
-                    style = MaterialTheme.typography.labelLarge.copy(
-                        color = MaterialTheme.colorScheme.onSurface
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Pilih Rekening",
+                        style = MaterialTheme.typography.labelLarge.copy(
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
                     )
-                )
-                Text(
-                    text = "Lihat Semua",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.clickable { onNavigateToSelectCategory() }
-                )
+                    if (state.transactionType == "DEBT") {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Switch(
+                                checked = !state.isDitalangin,
+                                onCheckedChange = { viewModel.onDitalanginChanged(!it) }
+                            )
+                        }
+                    }
+                }
+                OutlinedButton(
+                    onClick = { if (!isDitalangin) showAccountPopup = true },
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.onSurface
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (isDitalangin) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.People,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(
+                                    text = "Ditalangin Teman",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            } else if (selectedAccount != null) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .clip(CircleShape)
+                                        .background(CategoryIconMapper.getBackgroundColorByHex(selectedAccount.color)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = CategoryIconMapper.getIconByName(selectedAccount.icon),
+                                        contentDescription = null,
+                                        tint = CategoryIconMapper.getColorByHex(selectedAccount.color),
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(
+                                    text = selectedAccount.name,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            } else {
+                                Text(
+                                    text = "Pilih Rekening",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        if (!isDitalangin) {
+                            Icon(
+                                imageVector = Icons.Default.KeyboardArrowDown,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+                if (showAccountPopup) {
+                    AlertDialog(
+                        onDismissRequest = { showAccountPopup = false },
+                        title = {
+                            Text(text = "Pilih Rekening")
+                        },
+                        text = {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .verticalScroll(rememberScrollState()),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                state.accounts.forEach { acc ->
+                                    val isSelected = acc.id == state.selectedAccountId
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 4.dp)
+                                            .background(
+                                                color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.15f),
+                                                shape = RoundedCornerShape(8.dp)
+                                            )
+                                            .clickable {
+                                                viewModel.onAccountSelected(acc.id)
+                                                showAccountPopup = false
+                                            }
+                                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(36.dp)
+                                                    .clip(CircleShape)
+                                                    .background(CategoryIconMapper.getBackgroundColorByHex(acc.color)),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(
+                                                    imageVector = CategoryIconMapper.getIconByName(acc.icon),
+                                                    contentDescription = null,
+                                                    tint = CategoryIconMapper.getColorByHex(acc.color),
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                            }
+                                            Spacer(modifier = Modifier.width(12.dp))
+                                            Column {
+                                                Text(
+                                                    text = acc.name,
+                                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                                                )
+                                                Spacer(modifier = Modifier.height(2.dp))
+                                                Text(
+                                                    text = formatBalance(acc.balance),
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                        }
+                                        RadioButton(
+                                            selected = isSelected,
+                                            onClick = {
+                                                viewModel.onAccountSelected(acc.id)
+                                                showAccountPopup = false
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        },
+                        confirmButton = {
+                            TextButton(onClick = { showAccountPopup = false }) {
+                                Text("Batal")
+                            }
+                        }
+                    )
+                }
             }
 
-            CategoryGrid(
-                categories = currentCategories,
-                selectedLabel = state.selectedCategory?.categoryName ?: "",
-                onCategorySelected = { label -> 
-                    // Find actual category entity
-                    state.categories.find { it.categoryName == label }?.let { cat ->
-                        viewModel.onCategorySelected(cat)
-                    }
-                },
-                onNavigateToSelectCategory = onNavigateToSelectCategory,
-                onNavigateToAddCategory = onNavigateToAddCategory,
-                primaryBlue = primaryBlue
-            )
+            // ----------------------------------------------------------------
+            // 3. Kategori Label + Grid
+            if (state.transactionType == "EXPENSE" || state.transactionType == "INCOME") {
+                val currentCategories = mapCategoriesToUI(state.categories, state.selectedCategory)
+                val categoryLabel = if (state.transactionType == "EXPENSE")
+                    "Kategori Pengeluaran" else "Kategori Pemasukan"
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = categoryLabel,
+                        style = MaterialTheme.typography.labelLarge.copy(
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    )
+                    Text(
+                        text = "Lihat Semua",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.clickable { showAllCategories = true }
+                    )
+                }
+
+                CategoryGrid(
+                    categories = currentCategories,
+                    selectedId = state.selectedCategory?.id ?: "",
+                    onCategorySelected = { id -> 
+                        state.categories.find { it.id == id }?.let { cat ->
+                            viewModel.onCategorySelected(cat)
+                        }
+                    },
+                    onNavigateToSelectCategory = { showAllCategories = true },
+                    onNavigateToAddCategory = onNavigateToAddCategory,
+                    primaryBlue = primaryBlue
+                )
+            }
 
             // ----------------------------------------------------------------
             // 4. Tanggal Field — klik membuka DatePickerDialog
@@ -716,43 +959,35 @@ private fun SegmentedTypeToggle(
             .background(segmentedBg)
             .padding(4.dp)
     ) {
-        Row(modifier = Modifier.fillMaxWidth()) {
-            // Pengeluaran tab
-            val isExpense = selected == "EXPENSE"
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(50.dp))
-                    .background(if (isExpense) primaryBlue else Color.Transparent)
-                    .clickable { onSelect("EXPENSE") }
-                    .padding(vertical = 10.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "Pengeluaran",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = if (isExpense) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = if (isExpense) FontWeight.Bold else FontWeight.Medium
-                )
-            }
-
-            // Pemasukan tab
-            val isIncome = selected == "INCOME"
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(50.dp))
-                    .background(if (isIncome) primaryBlue else Color.Transparent)
-                    .clickable { onSelect("INCOME") }
-                    .padding(vertical = 10.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "Pemasukan",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = if (isIncome) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = if (isIncome) FontWeight.Bold else FontWeight.Medium
-                )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            val options = listOf(
+                "EXPENSE" to "Pengeluaran",
+                "INCOME" to "Pemasukan",
+                "DEBT" to "Hutang",
+                "RECEIVABLE" to "Piutang"
+            )
+            options.forEach { (type, label) ->
+                val isSelected = selected == type
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(50.dp))
+                        .background(if (isSelected) primaryBlue else Color.Transparent)
+                        .clickable { onSelect(type) }
+                        .padding(vertical = 10.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                        maxLines = 1
+                    )
+                }
             }
         }
     }
@@ -851,7 +1086,7 @@ private fun AmountInputCard(
 @Composable
 private fun CategoryGrid(
     categories: List<CategoryItem>,
-    selectedLabel: String,
+    selectedId: String,
     onCategorySelected: (String) -> Unit,
     onNavigateToSelectCategory: () -> Unit,
     onNavigateToAddCategory: () -> Unit,
@@ -871,13 +1106,13 @@ private fun CategoryGrid(
                     // Routing per-label: dua callback berbeda untuk dua aksi berbeda
                     val clickAction: () -> Unit = when (item.label) {
                         "Tambah"  -> onNavigateToAddCategory       // buat kategori baru
-                        else      -> { { onCategorySelected(item.label) } }
+                        else      -> { { item.id?.let { onCategorySelected(it) } } }
                     }
 
                     Box(modifier = Modifier.weight(1f)) {
                         CategoryGridItem(
                             item = item,
-                            isSelected = item.label == selectedLabel,
+                            isSelected = item.id != null && item.id == selectedId,
                             onClick = clickAction,
                             primaryBlue = primaryBlue
                         )
